@@ -62,7 +62,9 @@ public:
       return false;
     }
 
-    serializeJson(doc, configFile);
+    JSON::stringify(doc, configFile);
+
+    configFile.close();
     return true;
   }
 
@@ -113,17 +115,15 @@ public:
     Serial.println("Connect timed out");
     return false;
   }
+
 private:
   static DynamicJsonDocument* loadWifiConfig() {
     File configFile = LittleFS.open(WIFI_CONFIG_FILE, "r");
     if (!configFile) {
       return nullptr;
     }
-    DynamicJsonDocument* doc = new DynamicJsonDocument(200);
-    auto error = deserializeJson(*doc, configFile);
-    if (error) {
-      return nullptr;
-    }
+    DynamicJsonDocument* doc = JSON::parse(200, configFile);
+    configFile.close();
     return doc;
   }
 

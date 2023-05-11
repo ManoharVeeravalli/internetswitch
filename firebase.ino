@@ -19,7 +19,6 @@ void setup() {
     delay(1000);
   }
 
-
   delay(3000);
 
   Serial.println("Disconnecting from current WiFi connection");
@@ -36,14 +35,15 @@ void setup() {
     return;
   }
 
-  //only for dev
+  // //only for dev
   // LittleFS.remove(WIFI_CONFIG_FILE);
   // LittleFS.remove(FIREBASE_CONFIG_FILE);
+
 
   WiFi.mode(WIFI_AP_STA);
 
 
-  if (isWiFiEnabled() && Firebase::isReady()) {
+  if (isWiFiEnabled() && !isSetupPending()) {
     onSetupComplete();
     return;
   };
@@ -67,14 +67,18 @@ void setup() {
 
 void loop() {
   delay(5000);
-  Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
+  // Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
   if (isSetupPending()) {
+    Serial.println("Setup pending...");
     return;
   }
 
   String status = Firebase::getStatusFromFirebase();
 
-  if (status.isEmpty()) return;
+  if (status.isEmpty()) {
+    Serial.println("NA");
+    return;
+  };
 
   digitalWrite(LED_BUILTIN, status == "HIGH" ? HIGH : LOW);
   Serial.println(status);
@@ -82,6 +86,7 @@ void loop() {
 
 
 void onSetupComplete() {
+  server.stop();
   WiFi.mode(WIFI_STA);
   Serial.println("\nSetup ready, proceeding to firebase....");
 }
@@ -137,9 +142,19 @@ void launchWeb() {
   Serial.println("Server started");
 }
 
+const char* html() {
+  if (!WifiClient::isReady()) {
+    return WIFI_HTML;
+  }
+  if (!Firebase::isReady()) {
+    return LOGIN_HTML;
+  }
+  return SUCCESS_HTML;
+}
+
 void createWebServer() {
   server.on("/", []() {
-    server.send(200, "text/html", WifiClient::isReady() ? LOGIN_HTML : INDEX_HTML);
+    server.send(200, "text/html", html());
   });
   server.on("/styles", []() {
     server.send(200, "text/css", STYLES);
@@ -203,6 +218,7 @@ void createWebServer() {
     }
 
     DynamicJsonDocument* body = response->json(2048);
+
     int statusCode = response->getStatusCode();
 
     delete response;
@@ -215,6 +231,8 @@ void createWebServer() {
     handleLogin(statusCode, body);
 
     delete body;
+
+    server.send(200, "text/plain", "Success!");
   });
   server.on("/save", []() {
     //Check if body received
@@ -245,6 +263,8 @@ void createWebServer() {
       server.send(500, "application/json", "Somer error has occured, Please try again later");
       return;
     }
+
+    Serial.println("\nWiFi credentials saved successfully!");
 
     server.send(200, "application/json", "Credentials Saved!");
   });
@@ -279,7 +299,10 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
       server.send(500, "text/plain", "Somer error has occured, Please try again later");
       return;
     }
-    server.send(200, "text/plain", "Device registred successfully!");
+
+    Serial.println("\nFirebase configurations saved successfully!");
+
+    server.send(200, "text/plain", "Device Registered <span style='color: var(--primary);'>Successfully</span></span>");
 
     delay(2000);
 

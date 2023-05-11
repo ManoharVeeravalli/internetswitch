@@ -7,7 +7,7 @@ private:
   String refreshToken_;
   String deciveId_;
 public:
-  FirebaseConfig(String localId, String idToken, String refreshToken, String deciveId) {
+  FirebaseConfig(String& localId, String& idToken, String& refreshToken, String& deciveId) {
     localId_ = localId;
     idToken_ = idToken;
     refreshToken_ = refreshToken;

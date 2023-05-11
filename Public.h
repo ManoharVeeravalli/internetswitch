@@ -429,7 +429,7 @@ async function onPasswordSubmit(e) {
         let text = await response.text();
         if (response.status !== 200) {
             document.getElementById('password-error').style.display = 'block';
-            document.getElementById('password-error').innerText = text ||  'Some error has occured, please try again later!';
+            document.getElementById('password-error').innerText = text || 'Some error has occured, please try again later!';
             document.getElementById('password').focus();
             return;
         }
@@ -536,15 +536,15 @@ function onDocReady() {
                     "Content-Type": "application/json",
                 },
             });
-            console.log(response);
             let text = await response.text();
             if (response.status !== 200) {
                 document.getElementById('form-error').style.display = 'block';
-                document.getElementById('form-error').innerText = text ||  'Some error has occured, please try again later!';
+                document.getElementById('form-error').innerText = text || 'Some error has occured, please try again later!';
                 document.getElementById('form-email').focus();
             } else {
-                document.getElementById('form-success').style.display = 'block';
-                document.getElementById('form-success').innerText = text;
+                document.getElementById('register-success').style.innerHTML = text;
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-success').style.display = 'block';
             }
         } catch (e) {
             console.error(e);
@@ -564,12 +564,11 @@ function onFormChange() {
     document.getElementById('form-success').innerText = '';
 }
 
-
 )=====";
 
 
 
-const char INDEX_HTML[] PROGMEM = R"=====(
+const char WIFI_HTML[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang='en'>
 
@@ -656,8 +655,10 @@ const char LOGIN_HTML[] PROGMEM = R"=====(
                     <div class="flex-center success-box">
                         <p id='form-success' class='password-success'>Saved Successfully</p>
                     </div>
-                    <input type="email" onkeyup='onFormChange()' id="form-email" class='password-input' required placeholder='Email ID' />
-                    <input type="password" onkeyup='onFormChange()' id="form-password" class='password-input' required placeholder='Password' />
+                    <input type="email" onkeyup='onFormChange()' id="form-email" class='password-input' required
+                        placeholder='Email ID' />
+                    <input type="password" onkeyup='onFormChange()' id="form-password" class='password-input' required
+                        placeholder='Password' />
                 </div>
 
                 <button id="form-button" type="submit">
@@ -667,10 +668,29 @@ const char LOGIN_HTML[] PROGMEM = R"=====(
 
         </div>
     </form>
+    <h2 style="display: none;" id="register-success" class='heading form-heading'>Device Registered <span
+            style='color: var(--primary);'>Successfully</span></span></h2>
 
 </body>
 
 </html>
 )=====";
 
+const char SUCCESS_HTML[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html lang='en'>
 
+<head>
+    <title>Internet Switch Setup</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <script src="/script"></script>
+    <link href="/styles" rel="stylesheet" type="text/css" />
+</head>
+
+<body class="flex-center" style="height: 90vh;">
+      <h2 id="register-success" class='heading form-heading'>Device Registered <span
+            style='color: var(--primary);'>Successfully</span></span></h2>
+</body>
+
+</html>
+)=====";

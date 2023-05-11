@@ -6,13 +6,14 @@
 
 const char* FIREBASE_CONFIG_FILE = "firebase.json";
 
-std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
-
-const char* FINGERPRINT = "A3 91 34 22 BC 1A 48 69 72 56 FE 52 F7 DA 7D 9A 46 1B DA 05";
+const char* FINGERPRINT = "A7 7B 0F F6 B0 8B 9B CA A7 0B 1A 82 76 10 B2 64 10 BB 17 0A";
 
 const char* LOGIN_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyD0o2HHGWp6oP_VTgA5DA4liDGAvXzIOYE";
 
-String FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/metrix-3c2e5/databases/(default)/documents";
+const char* REFRESH_TOKEN_URL = "https://securetoken.googleapis.com/v1/token?key=AIzaSyD0o2HHGWp6oP_VTgA5DA4liDGAvXzIOYE";
+
+
+String FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/metrix-3c2e5/databases/(default)/documents/";
 
 
 
@@ -30,45 +31,36 @@ public:
 
     String payload = JSON::stringify(doc);
 
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+
     client->setFingerprint(FINGERPRINT);
 
     HTTPClient https;
 
-    HttpResponse* response;
+    HttpResponse* response = nullptr;
 
-    Serial.print("[HTTPS] begin...\n");
     if (https.begin(*client, HOST, 443, LOGIN_URL, true)) {
 
-      Serial.print("[HTTPS] POST...\n");
-      // start connection and send HTTP header
       int httpCode = https.POST(payload);
 
-      // httpCode will be negative on error
+      String payload = https.getString();
       if (httpCode > 0) {
-        // HTTP header has been send and Server response header has been handled
-        Serial.printf("[HTTPS] POST... code: %d\n", httpCode);
-
-        String payload = https.getString();
-        Serial.println(payload);
         response = new HttpResponse(httpCode, payload);
       } else {
-        Serial.println(httpCode);
-        Serial.printf("[HTTPS] POST... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("[HTTPS] signInWithEmailAndPassword POST... failed, error: %d\n", httpCode);
       }
 
       https.end();
     } else {
-      Serial.printf("[HTTPS] Unable to connect\n");
+      Serial.printf("[HTTPS] signInWithEmailAndPassword Unable to connect\n");
     }
 
     return response;
   }
 
   static String getStatusFromFirebase() {
-    String result = "";
-    client->setFingerprint(FINGERPRINT);
 
-    HTTPClient https;
+    String result = "";
 
     FirebaseConfig* config = getFirebaseConfig();
 
@@ -77,31 +69,127 @@ public:
     String localId = config->getLocalID();
     String deviceId = config->getDeviceID();
     String idToken = config->getToken();
+    String refreshToken = config->getRefreshToken();
 
     delete config;
 
+    String path = "users/" + localId + "/devices/" + deviceId;
 
-    if (https.begin(*client, FIRESTORE_BASE_URL + "/users/" + localId + "/devices/" + deviceId)) {  // HTTPS
+    HttpResponse* response = getDocumentFromFirestore(path, idToken);
+
+    if (!response) {
+      Serial.println("Some Error has Occurred!");
+      return result;
+    }
+
+    int httpCode = response->getStatusCode();
+    String body = response->getBody();
+
+    delete response;
+
+    if (httpCode != HTTP_CODE_OK) {
+
+      if (httpCode == HTTP_CODE_UNAUTHORIZED) {
+
+        Serial.println("credentials have expired, regenrating token!");
+
+        if (regenerateToken(deviceId, refreshToken)) {
+          Serial.println("Token regenerated successfully!");
+        } else {
+          Serial.println("Failed to generate token!");
+        }
+
+      } else {
+        Serial.printf("Some Error has Occurred, httpCode: %d", httpCode);
+      }
+
+      return result;
+    }
+
+    DynamicJsonDocument* doc = JSON::parse(384, body);
+
+    if (!doc) {
+      Serial.println("Some Error has Occurred!");
+      return result;
+    }
+
+    const bool status = (*doc)["fields"]["status"]["booleanValue"].as<bool>();
+    result = status ? "HIGH" : "LOW";
+
+    delete doc;
+
+    return result;
+  }
+
+  static HttpResponse* getDocumentFromFirestore(String path, String idToken) {
+
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+
+    client->setFingerprint(FINGERPRINT);
+
+    HTTPClient https;
+
+    HttpResponse* response = nullptr;
+
+    if (https.begin(*client, FIRESTORE_BASE_URL + path)) {  // HTTPS
 
       https.addHeader("Authorization", "Bearer " + idToken);
-      // start connection and send HTTP header
       int httpCode = https.GET();
+
+      if (httpCode > 0) {
+        String payload = https.getString();
+        response = new HttpResponse(httpCode, payload);
+      } else {
+        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      }
+      https.end();
+    } else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+    }
+
+    return response;
+  }
+
+  static bool regenerateToken(String deviceId, String refreshToken) {
+    DynamicJsonDocument doc(384);
+    doc["grant_type"] = "refresh_token";
+    doc["refresh_token"] = refreshToken;
+    String payload = JSON::stringify(doc);
+
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+
+    client->setFingerprint(FINGERPRINT);
+
+    HTTPClient https;
+
+    bool result = false;
+
+    if (https.begin(*client, HOST, 443, REFRESH_TOKEN_URL, true)) {
+
+      // start connection and send HTTP header
+      int httpCode = https.POST(payload);
 
       // httpCode will be negative on error
       if (httpCode > 0) {
         // HTTP header has been send and Server response header has been handled
         if (httpCode == HTTP_CODE_OK) {
-          String payload = https.getString();
-          DynamicJsonDocument* doc = JSON::parse(384, payload);
+          String output = https.getString();
+          DynamicJsonDocument* doc = JSON::parse(3072, output);
           if (doc) {
-            const bool status = (*doc)["fields"]["status"]["booleanValue"].as<bool>();
-            result = status ? "HIGH" : "LOW";
+            String newLocalId = (*doc)["user_id"].as<String>();
+            String newIdToken = (*doc)["id_token"].as<String>();
+            String newRefreshToken = (*doc)["refresh_token"].as<String>();
+
+            delete doc;
+
+            bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
+            result = isSaved;
           }
         } else {
           Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
         }
       } else {
-        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("[HTTPS] POST... failed, error: %s\n", https.errorToString(httpCode).c_str());
       }
 
       https.end();
@@ -121,40 +209,32 @@ public:
 
     String payload = JSON::stringify(root);
 
-    Serial.println();
-    Serial.println(payload);
-    Serial.println();
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
 
     client->setFingerprint(FINGERPRINT);
     HTTPClient https;
 
-    HttpResponse* response;
+    HttpResponse* response = nullptr;
 
-    Serial.print("[HTTPS] begin...\n");
-    if (https.begin(*client, FIRESTORE_BASE_URL + "/users/" + localId + "/devices")) {  // HTTPS
+    if (https.begin(*client, FIRESTORE_BASE_URL + "users/" + localId + "/devices")) {
 
-      Serial.print("[HTTPS] POST...\n");
       https.addHeader("Authorization", "Bearer " + idToken);
-      // start connection and send HTTP header
       int httpCode = https.POST(payload);
 
-      // httpCode will be negative on error
       if (httpCode > 0) {
-        // HTTP header has been send and Server response header has been handled
-        Serial.printf("[HTTPS] POST... code: %d\n", httpCode);
         if (httpCode == HTTP_CODE_OK) {
           String payload = https.getString();
           response = new HttpResponse(httpCode, payload);
         } else {
-          Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+          Serial.printf("[HTTPS] createDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
         }
       } else {
-        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("[HTTPS] createDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
       }
 
       https.end();
     } else {
-      Serial.printf("[HTTPS] Unable to connect\n");
+      Serial.printf("[HTTPS] createDeviceDocument Unable to connect\n");
     }
 
     return response;
@@ -175,6 +255,7 @@ public:
       return nullptr;
     }
 
+
     bool isLocalId = doc->containsKey("localId");
     bool isIdToken = doc->containsKey("idToken");
     bool isRefreshToken = doc->containsKey("refreshToken");
@@ -191,6 +272,7 @@ public:
     String idToken = (*doc)["idToken"].as<String>();
     String refreshToken = (*doc)["refreshToken"].as<String>();
     String deviceId = (*doc)["deviceId"].as<String>();
+
     delete doc;
 
     if (localId.isEmpty() || idToken.isEmpty() || refreshToken.isEmpty() || deviceId.isEmpty()) {
@@ -202,7 +284,7 @@ public:
     return config;
   }
 
-  static bool saveFirebaseConfig(String localId, String idToken, String refreshToken, String deviceId) {
+  static bool saveFirebaseConfig(String& localId, String& idToken, String& refreshToken, String& deviceId) {
     if (LittleFS.exists(FIREBASE_CONFIG_FILE)) {
       if (!LittleFS.remove(FIREBASE_CONFIG_FILE)) {
         Serial.println("Failed to remove config file for writing");
@@ -223,11 +305,13 @@ public:
       return false;
     }
 
-    serializeJson(doc, configFile);
+    JSON::stringify(doc, configFile);
+
+    configFile.close();
     return true;
   }
 
-  static String getDeviceIDFromName(String name) {
+  static String getDeviceIDFromName(String& name) {
     int index = indexOfReverse(name, '/');
     return name.substring(index + 1, name.length());
   }
@@ -237,12 +321,8 @@ private:
     if (!configFile) {
       return nullptr;
     }
-
-    DynamicJsonDocument* doc = new DynamicJsonDocument(1536);
-    auto error = deserializeJson(*doc, configFile);
-    if (error) {
-      return nullptr;
-    }
+    DynamicJsonDocument* doc = JSON::parse(1536, configFile);
+    configFile.close();
     return doc;
   }
 
