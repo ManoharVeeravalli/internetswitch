@@ -1,13 +1,15 @@
 #include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
 #include <LittleFS.h>
 #include "FS.h"
 #include "Public.h"
 #include "Firebase.h"
-#include "WiFiClient.h"
 
 
 //Establishing Local server at port 80 whenever required
 ESP8266WebServer server(80);
+
+const char* HOSTNAME = "internetswitch";
 
 void setup() {
   Serial.begin(115200);
@@ -35,10 +37,6 @@ void setup() {
     return;
   }
 
-  // //only for dev
-  // LittleFS.remove(WIFI_CONFIG_FILE);
-  // LittleFS.remove(FIREBASE_CONFIG_FILE);
-
 
   WiFi.mode(WIFI_AP_STA);
 
@@ -48,11 +46,17 @@ void setup() {
     return;
   };
 
-  Serial.println("Setup not ready, turning the HotSpot On");
+  Serial.println("Setup not ready, turning on HotSpot!");
+
+  //Start mDNS
+  Serial.println("Starting MDNS...");
+  if (!MDNS.begin(HOSTNAME)) {
+    Serial.println("Failed to start MDNS");
+    return;
+  }
 
   setupAP();
   launchWeb();
-
 
   Serial.println("\nWaiting...");
 
@@ -60,6 +64,7 @@ void setup() {
     Serial.print(".");
     delay(100);
     server.handleClient();
+    MDNS.update();
   }
 
   onSetupComplete();
@@ -67,9 +72,10 @@ void setup() {
 
 void loop() {
   delay(5000);
-  // Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
+  Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
   if (isSetupPending()) {
     Serial.println("Setup pending...");
+    digitalWrite(LED_BUILTIN, LOW);
     return;
   }
 
@@ -77,6 +83,7 @@ void loop() {
 
   if (status.isEmpty()) {
     Serial.println("NA");
+    digitalWrite(LED_BUILTIN, LOW);
     return;
   };
 
@@ -86,6 +93,7 @@ void loop() {
 
 
 void onSetupComplete() {
+  MDNS.end();
   server.stop();
   WiFi.mode(WIFI_STA);
   Serial.println("\nSetup ready, proceeding to firebase....");
@@ -146,6 +154,9 @@ const char* html() {
   if (!WifiClient::isReady()) {
     return WIFI_HTML;
   }
+  if (WiFi.status() != WL_CONNECTED) {
+    return WIFI_HTML;
+  }
   if (!Firebase::isReady()) {
     return LOGIN_HTML;
   }
@@ -185,6 +196,12 @@ void createWebServer() {
       return;
     }
 
+
+    if (!(WiFi.status() == WL_CONNECTED)) {
+      server.send(400, "text/plain", "Wifi Not Available, Please Refresh!");
+      return;
+    }
+
     DynamicJsonDocument* doc = JSON::parse(server.arg("plain"));
     if (!doc) {
       server.send(400, "text/plain", "Invalid Body");
@@ -205,10 +222,6 @@ void createWebServer() {
       return;
     }
 
-    if (!(WiFi.status() == WL_CONNECTED)) {
-      server.send(400, "text/plain", "Wifi Not Available!");
-      return;
-    }
 
     HttpResponse* response = Firebase::signInWithEmailAndPassword(email, password);
 
@@ -255,9 +268,6 @@ void createWebServer() {
       server.send(400, "application/json", "Invalid ssid/password!");
       return;
     }
-
-    Serial.println("\nDisconnecting from WiFi...");
-    WifiClient::disconnect();
 
     if (!WifiClient::saveWifiConfig(ssid, password)) {
       server.send(500, "application/json", "Somer error has occured, Please try again later");

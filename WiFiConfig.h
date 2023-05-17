@@ -2,17 +2,17 @@
 
 class WiFiConfig {
 private:
-  String ssid;
-  String password;
+  String ssid_;
+  String password_;
 public:
-  WiFiConfig(String id, String pass) {
-    ssid = id;
-    password = pass;
+  WiFiConfig(String ssid, String password) {
+    ssid_ = ssid;
+    password_ = password;
   }
   String getSSID() {
-    return ssid;
+    return ssid_;
   }
   String getPassword() {
-    return password;
+    return password_;
   }
 };

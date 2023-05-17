@@ -2,24 +2,24 @@
 
 class HttpResponse {
 private:
-  int statusCode;
-  String body;
+  int statusCode_;
+  String body_;
 
 public:
-  HttpResponse(int httpStatus, String responseBody) {
-    statusCode = httpStatus;
-    body = responseBody;
+  HttpResponse(int statusCode, String body) {
+    statusCode_ = statusCode;
+    body_ = body;
   }
   int getStatusCode() {
-    return statusCode;
+    return statusCode_;
   }
   String getBody() {
-    return body;
+    return body_;
   }
   DynamicJsonDocument* json(int size) {
-    return JSON::parse(size, body);
+    return JSON::parse(size, body_);
   }
   DynamicJsonDocument* json() {
-    return JSON::parse(body);
+    return JSON::parse(body_);
   }
 };

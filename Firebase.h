@@ -3,6 +3,8 @@
 #include <WiFiClientSecureBearSSL.h>
 #include "FirebaseConfig.h"
 #include "HttpResponse.h"
+#include "WiFiClient.h"
+
 
 const char* FIREBASE_CONFIG_FILE = "firebase.json";
 
@@ -114,9 +116,47 @@ public:
     }
 
     const bool status = (*doc)["fields"]["status"]["booleanValue"].as<bool>();
-    result = status ? "HIGH" : "LOW";
+    String state = (*doc)["fields"]["state"]["stringValue"].as<String>();
+
 
     delete doc;
+
+    if (state && state == "RESET") {
+      Serial.println("\nReceived RESET command removing document from firebase...");
+
+      if (!deleteDeviceDocument(deviceId, localId, idToken)) {
+        Serial.println("\nFailed to delete document from Firebase!");
+        return result;
+      }
+
+      Serial.println("\nDocument deleted from firebase successfully!");
+
+      Serial.println("\nRemoving config files from ESP...");
+
+      if (LittleFS.exists(WIFI_CONFIG_FILE) && !LittleFS.remove(WIFI_CONFIG_FILE)) {
+        Serial.println("\nFailed to remove WiFi config!");
+        return result;
+      }
+
+      Serial.println("\nWiFi config file removed successfully.");
+
+      if (LittleFS.exists(FIREBASE_CONFIG_FILE) && !LittleFS.remove(FIREBASE_CONFIG_FILE)) {
+        Serial.println("\nFailed to remove Firebase config!");
+        return result;
+      }
+
+      Serial.println("\nFirebase config file removed successfully.");
+
+      Serial.println("\nResetting ESP...");
+
+      delay(2000);
+
+      ESP.reset();
+
+      return result;
+    }
+
+    result = status ? "HIGH" : "LOW";
 
     return result;
   }
@@ -201,11 +241,13 @@ public:
   }
 
   static HttpResponse* createDeviceDocument(String localId, String idToken) {
-    DynamicJsonDocument doc(96);
+    DynamicJsonDocument doc(150);
     JsonObject root = doc.to<JsonObject>();
     JsonObject fieldsObj = root.createNestedObject("fields");
     JsonObject statusObj = fieldsObj.createNestedObject("status");
     statusObj["booleanValue"] = false;
+    JsonObject stateObj = fieldsObj.createNestedObject("state");
+    stateObj["stringValue"] = "ACTIVE";
 
     String payload = JSON::stringify(root);
 
@@ -238,6 +280,37 @@ public:
     }
 
     return response;
+  }
+
+  static bool deleteDeviceDocument(String deviceId, String localId, String idToken) {
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+
+    client->setFingerprint(FINGERPRINT);
+    HTTPClient https;
+
+    bool result = false;
+
+    if (https.begin(*client, FIRESTORE_BASE_URL + "users/" + localId + "/devices/" + deviceId)) {
+
+      https.addHeader("Authorization", "Bearer " + idToken);
+      int httpCode = https.DELETE();
+
+      if (httpCode > 0) {
+        if (httpCode == HTTP_CODE_OK) {
+          result = true;
+        } else {
+          Serial.printf("[HTTPS] deleteDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        }
+      } else {
+        Serial.printf("[HTTPS] deleteDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      }
+
+      https.end();
+    } else {
+      Serial.printf("[HTTPS] deleteDeviceDocument Unable to connect\n");
+    }
+
+    return result;
   }
 
   static bool isReady() {
