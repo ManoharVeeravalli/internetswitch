@@ -1,10 +1,62 @@
 #include "HardwareSerial.h"
-#include "Firestore.h"
+#include "FirebaseRTDB.h"
 #include "WiFiClient.h"
+
+
+const bool isFirestore = false;
 
 
 class Firebase {
 public:
+
+  static void onStatusChangeRTDB(StreamHandler callback) {
+
+    FirebaseConfig* config = getFirebaseConfig();
+
+    if (!config) return;
+
+    String localId = config->getLocalID();
+    String deviceId = config->getDeviceID();
+    String idToken = config->getToken();
+    String refreshToken = config->getRefreshToken();
+
+    delete config;
+
+    String path = "users/" + localId + "/devices/" + deviceId;
+
+    HttpResponse* response = FirebaseRTDB::onDocumentChange(path, idToken, callback);
+
+    if (!response) {
+      Serial.println("\nSome Error has Occurred!");
+      return;
+    }
+
+    int httpCode = response->getStatusCode();
+    String body = response->getBody();
+
+    delete response;
+
+    if (httpCode == HTTP_CODE_OK) {
+      return;
+    } else if (httpCode == HTTP_CODE_UNAUTHORIZED) {
+      regerateToken(refreshToken, deviceId);
+    } else if (httpCode == HTTP_CODE_RESET_CONTENT) {
+      Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
+      Serial.println("\nReceived RESET command removing document from firebase RTDB...");
+
+      if (!FirebaseRTDB::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
+        Serial.println("\nFailed to delete document from Firebase RTDB!");
+        return;
+      }
+
+      Serial.println("\nDocument deleted from Firebase RTDB successfully!");
+
+      reset();
+    } else {
+      Serial.printf("\nSome Error has Occurred, httpCode: %d", httpCode);
+    }
+  }
+
   static String getStatusFromFirestore() {
 
     String result = "";
@@ -55,14 +107,15 @@ public:
     delete doc;
 
     if (state && state == "RESET") {
-      Serial.println("\nReceived RESET command removing document from firebase...");
+      Serial.println("\nReceived RESET command removing document from Firestore...");
 
       if (!Firestore::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
-        Serial.println("\nFailed to delete document from Firebase!");
+        Serial.println("\nFailed to delete document from Firebase Firestore!");
         return result;
       }
 
-      Serial.println("\nDocument deleted from firebase successfully!");
+      Serial.println("\nDocument deleted from Firebase Firestore successfully!");
+
       reset();
 
       return result;
@@ -71,6 +124,14 @@ public:
     result = status ? "HIGH" : "LOW";
 
     return result;
+  }
+
+  static String createDevice(String localId, String idToken) {
+    if (isFirestore) {
+      return Firestore::createDevice(localId, idToken);
+    }
+
+    return FirebaseRTDB::createDevice(localId, idToken);
   }
 
 
@@ -145,6 +206,32 @@ public:
     return true;
   }
 
+  static bool reset() {
+    Serial.println("\nRemoving config files from ESP...");
+
+    if (LittleFS.exists(WIFI_CONFIG_FILE) && !LittleFS.remove(WIFI_CONFIG_FILE)) {
+      Serial.println("\nFailed to remove WiFi config!");
+      return false;
+    }
+
+    Serial.println("\nWiFi config file removed successfully.");
+
+    if (LittleFS.exists(FIREBASE_CONFIG_FILE) && !LittleFS.remove(FIREBASE_CONFIG_FILE)) {
+      Serial.println("\nFailed to remove Firebase config!");
+      return false;
+    }
+
+    Serial.println("\nFirebase config file removed successfully.");
+
+    Serial.println("\nResetting ESP...");
+
+    delay(2000);
+
+    ESP.reset();
+
+    return true;
+  }
+
 
 private:
   static DynamicJsonDocument* loadFirebaseConfig() {
@@ -181,29 +268,5 @@ private:
         Serial.println("Failed to save token!");
       }
     }
-  }
-
-  static void reset() {
-    Serial.println("\nRemoving config files from ESP...");
-
-    if (LittleFS.exists(WIFI_CONFIG_FILE) && !LittleFS.remove(WIFI_CONFIG_FILE)) {
-      Serial.println("\nFailed to remove WiFi config!");
-      return;
-    }
-
-    Serial.println("\nWiFi config file removed successfully.");
-
-    if (LittleFS.exists(FIREBASE_CONFIG_FILE) && !LittleFS.remove(FIREBASE_CONFIG_FILE)) {
-      Serial.println("\nFailed to remove Firebase config!");
-      return;
-    }
-
-    Serial.println("\nFirebase config file removed successfully.");
-
-    Serial.println("\nResetting ESP...");
-
-    delay(2000);
-
-    ESP.reset();
   }
 };

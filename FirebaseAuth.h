@@ -26,7 +26,12 @@ public:
 
     FirebaseConfig* config = nullptr;
 
-    HttpResponse* response = Fetch::POST(FIRESTORE_HOST, LOGIN_URL, JSON::stringify(payload), "");
+    HttpResponse* response = Fetch::POST(FIRESTORE_HOST, REFRESH_TOKEN_URL, JSON::stringify(payload), "");
+
+    if(!response) {
+      Serial.println("\ninvalid response");
+      return config;
+    }
 
     int httpCode = response->getStatusCode();
     String body = response->getBody();
@@ -34,6 +39,7 @@ public:
     delete response;
 
     if (httpCode != HTTP_CODE_OK) {
+      Serial.printf("\nInvalid statusCode %d", httpCode);
       return config;
     }
 

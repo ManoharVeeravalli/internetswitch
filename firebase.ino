@@ -38,6 +38,10 @@ void setup() {
     return;
   }
 
+  //only dev
+  // LittleFS.remove(WIFI_CONFIG_FILE);
+  // LittleFS.remove(FIREBASE_CONFIG_FILE);
+
 
   WiFi.mode(WIFI_AP_STA);
 
@@ -80,16 +84,10 @@ void loop() {
     return;
   }
 
-  String status = Firebase::getStatusFromFirestore();
-
-  if (status.isEmpty()) {
-    Serial.println("NA");
-    digitalWrite(LED_BUILTIN, LOW);
-    return;
-  };
-
-  digitalWrite(LED_BUILTIN, status == "HIGH" ? HIGH : LOW);
-  Serial.println(status);
+  Firebase::onStatusChangeRTDB([](String status) {
+    digitalWrite(LED_BUILTIN, status == "HIGH" ? HIGH : LOW);
+    Serial.printf("status: %s", status);
+  });
 }
 
 
@@ -130,7 +128,7 @@ bool isWiFiEnabled() {
 
 void setupAP(void) {
   Serial.println("Initializing hotspot....");
-  WifiClient::disconnect();
+  // WifiClient::disconnect();
   delay(100);
   WiFi.softAP("InternetSwitch", "");
   Serial.println("Hotspot Initialized!");
@@ -290,12 +288,19 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
     String idToken = (*body)["idToken"].as<String>();
     String refreshToken = (*body)["refreshToken"].as<String>();
 
-    String deviceId = Firestore::createDevice(localId, idToken);
+    Serial.println("creating device....");
+
+
+    String deviceId = Firebase::createDevice(localId, idToken);
+
 
     if (deviceId.isEmpty()) {
       server.send(500, "text/plain", "Somer error has occured, Please try again later");
       return;
     }
+
+    Serial.println("device created successfully!");
+
 
     if (!Firebase::saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
       //TODO: Delete firebase doc if not able to save

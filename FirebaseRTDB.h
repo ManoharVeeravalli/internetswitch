@@ -1,29 +1,34 @@
+#include "HardwareSerial.h"
 #include "Firestore.h"
 
 
 class FirebaseRTDB {
 public:
   static bool deleteDocument(String path, String idToken) {
-    return Fetch::DELETE(RTDB_HOST, RTDB_BASE_URL + path + "?auth=" + idToken, "");
+    return Fetch::DELETE(RTDB_HOST, "/" + path + ".json?auth=" + idToken, "");
   }
 
   static HttpResponse* createDocument(String path, String payload, String idToken) {
-    return Fetch::POST(RTDB_HOST, RTDB_BASE_URL + path + "?auth=" + idToken, payload, "");
+    return Fetch::POST(RTDB_HOST, "/" + path + ".json?auth=" + idToken, payload, "");
   }
 
   static HttpResponse* getDocument(String path, String idToken) {
-    return Fetch::GET(RTDB_HOST, RTDB_BASE_URL + path + "?auth=" + idToken, "");
+    return Fetch::GET(RTDB_HOST, "/" + path + ".json?auth=" + idToken, "");
+  }
+
+  static HttpResponse* onDocumentChange(String path, String idToken, StreamHandler callback) {
+    return Fetch::ON(RTDB_HOST, "/" + path + ".json?auth=" + idToken, "", callback);
   }
 
   static String createDevice(String localId, String idToken) {
     DynamicJsonDocument payload(150);
     JsonObject root = payload.to<JsonObject>();
-    root["status"] = false;
-    root["state"] = "Active";
+    root["status"] = "LOW";
+    root["state"] = "ACTIVE";
 
     String deviceID = "";
 
-    HttpResponse* resp = createDocument("users/" + localId + "/devices.json", JSON::stringify(root), idToken);
+    HttpResponse* resp = createDocument("users/" + localId + "/devices", JSON::stringify(root), idToken);
 
     if (!resp) {
       return deviceID;
@@ -44,7 +49,8 @@ public:
       return deviceID;
     }
 
-    String name = (*doc)["name"].as<String>();
+    deviceID = (*doc)["name"].as<String>();
+
 
     delete doc;
 

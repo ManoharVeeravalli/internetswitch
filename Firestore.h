@@ -20,7 +20,7 @@ public:
     JsonObject root = payload.to<JsonObject>();
     JsonObject fieldsObj = root.createNestedObject("fields");
     JsonObject statusObj = fieldsObj.createNestedObject("status");
-    statusObj["booleanValue"] = false;
+    statusObj["stringValue"] = "LOW";
     JsonObject stateObj = fieldsObj.createNestedObject("state");
     stateObj["stringValue"] = "ACTIVE";
 

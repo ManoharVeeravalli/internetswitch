@@ -84,11 +84,11 @@ public:
 
 
   static void disconnect() {
+    Serial.println("\nDisconnecting from WiFi...");
     WiFi.disconnect(false, true);
   }
 
   static bool testWifi(String ssid, String password) {
-    Serial.println("\nDisconnecting from WiFi...");
     disconnect();
     delay(100);
     Serial.println();
