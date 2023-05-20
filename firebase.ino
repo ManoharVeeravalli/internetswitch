@@ -184,18 +184,21 @@ void createWebServer() {
     }
     WiFiConfig* config = WifiClient::getWifiConfig();
     if (!config) {
-      server.send(400, "text/plain", "Some error has occured, please refresh and try again!");
+      server.send(400, "text/plain", "Wifi Not Available, Please Refresh!");
       return;
     }
-    String ssid = config->getSSID();
-    String pass = config->getPassword();
-
     delete config;
 
-    if (!WifiClient::testWifi(ssid, pass)) {
-      server.send(500, "application/json", "Some error has occured, please refresh and try again!");
-      return;
-    }
+
+    // String ssid = config->getSSID();
+    // String pass = config->getPassword();
+
+    // delete config;
+
+    // if (!WifiClient::testWifi(ssid, pass)) {
+    //   server.send(500, "application/json", "Some error has occured, please refresh and try again!");
+    //   return;
+    // }
 
 
     if (!(WiFi.status() == WL_CONNECTED)) {
@@ -292,10 +295,17 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
       server.send(400, "text/plain", "Somer error has occured, Please try again later");
       return;
     }
-    int statusCode = resp->getStatusCode();
-    DynamicJsonDocument* doc = resp->json(384);
+    int httpStatus = resp->getStatusCode();
+    String body = resp->getBody();
 
     delete resp;
+
+    if (httpStatus != HTTP_CODE_OK) {
+      server.send(400, "text/plain", "Somer error has occured, Please try again later");
+      return;
+    }
+
+    DynamicJsonDocument* doc = JSON::parse(384, body);
 
     if (!doc) {
       server.send(400, "text/plain", "Somer error has occured, Please try again later");
@@ -303,6 +313,8 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
     }
 
     String name = (*doc)["name"].as<String>();
+
+    delete doc;
 
     String deviceId = Firebase::getDeviceIDFromName(name);
 

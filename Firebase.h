@@ -20,9 +20,7 @@ public:
 
     delete config;
 
-    String url = FIRESTORE_BASE_URL + "users/" + localId + "/devices/" + deviceId;
-
-    HttpResponse* response = Firestore::getDocument(url, idToken);
+    HttpResponse* response = Firestore::getDocument("users/" + localId + "/devices/" + deviceId, idToken);
 
     if (!response) {
       Serial.println("Some Error has Occurred!");
@@ -59,7 +57,7 @@ public:
     if (state && state == "RESET") {
       Serial.println("\nReceived RESET command removing document from firebase...");
 
-      if (!Firestore::deleteDocument(FIRESTORE_BASE_URL + "users/" + localId + "/devices/" + deviceId, idToken)) {
+      if (!Firestore::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
         Serial.println("\nFailed to delete document from Firebase!");
         return result;
       }
@@ -86,7 +84,7 @@ public:
     stateObj["stringValue"] = "ACTIVE";
     String payload = JSON::stringify(root);
 
-    return Firestore::createDocument(FIRESTORE_BASE_URL + "users/" + localId + "/devices", payload, idToken);
+    return Firestore::createDocument("users/" + localId + "/devices", payload, idToken);
   }
 
 
