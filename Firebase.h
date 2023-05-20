@@ -1,13 +1,11 @@
 #include "HardwareSerial.h"
-#include "FirebaseAuth.h"
+#include "Firestore.h"
 #include "WiFiClient.h"
-
-
 
 
 class Firebase {
 public:
-  static String getStatusFromFirebase() {
+  static String getStatusFromFirestore() {
 
     String result = "";
 
@@ -22,9 +20,9 @@ public:
 
     delete config;
 
-    String path = "users/" + localId + "/devices/" + deviceId;
+    String url = FIRESTORE_BASE_URL + "users/" + localId + "/devices/" + deviceId;
 
-    HttpResponse* response = getDocumentFromFirestore(path, idToken);
+    HttpResponse* response = Firestore::getDocument(url, idToken);
 
     if (!response) {
       Serial.println("Some Error has Occurred!");
@@ -37,35 +35,11 @@ public:
     delete response;
 
     if (httpCode != HTTP_CODE_OK) {
-
       if (httpCode == HTTP_CODE_UNAUTHORIZED) {
-
-        Serial.println("credentials have expired, regenrating token!");
-
-        FirebaseConfig* newConfig = FirebaseAuth::regenerateToken(refreshToken);
-
-        if (!newConfig) {
-          Serial.println("Failed to generate token!");
-        } else {
-          Serial.println("Token generated successfully, saving to file....");
-          String newLocalId = newConfig->getLocalID();
-          String newIdToken = newConfig->getToken();
-          String newRefreshToken = newConfig->getRefreshToken();
-
-          delete newConfig;
-
-          bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
-          if (isSaved) {
-            Serial.println("Token saved successfully");
-          } else {
-            Serial.println("Failed to save token!");
-          }
-        }
-
+        regerateToken(refreshToken, deviceId);
       } else {
         Serial.printf("Some Error has Occurred, httpCode: %d", httpCode);
       }
-
       return result;
     }
 
@@ -85,34 +59,13 @@ public:
     if (state && state == "RESET") {
       Serial.println("\nReceived RESET command removing document from firebase...");
 
-      if (!deleteDeviceDocument(deviceId, localId, idToken)) {
+      if (!Firestore::deleteDocument(FIRESTORE_BASE_URL + "users/" + localId + "/devices/" + deviceId, idToken)) {
         Serial.println("\nFailed to delete document from Firebase!");
         return result;
       }
 
       Serial.println("\nDocument deleted from firebase successfully!");
-
-      Serial.println("\nRemoving config files from ESP...");
-
-      if (LittleFS.exists(WIFI_CONFIG_FILE) && !LittleFS.remove(WIFI_CONFIG_FILE)) {
-        Serial.println("\nFailed to remove WiFi config!");
-        return result;
-      }
-
-      Serial.println("\nWiFi config file removed successfully.");
-
-      if (LittleFS.exists(FIREBASE_CONFIG_FILE) && !LittleFS.remove(FIREBASE_CONFIG_FILE)) {
-        Serial.println("\nFailed to remove Firebase config!");
-        return result;
-      }
-
-      Serial.println("\nFirebase config file removed successfully.");
-
-      Serial.println("\nResetting ESP...");
-
-      delay(2000);
-
-      ESP.reset();
+      reset();
 
       return result;
     }
@@ -122,36 +75,8 @@ public:
     return result;
   }
 
-  static HttpResponse* getDocumentFromFirestore(String path, String idToken) {
 
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
-
-    client->setFingerprint(FINGERPRINT);
-
-    HTTPClient https;
-
-    HttpResponse* response = nullptr;
-
-    if (https.begin(*client, FIRESTORE_BASE_URL + path)) {  // HTTPS
-
-      https.addHeader("Authorization", "Bearer " + idToken);
-      int httpCode = https.GET();
-
-      if (httpCode > 0) {
-        String payload = https.getString();
-        response = new HttpResponse(httpCode, payload);
-      } else {
-        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
-      }
-      https.end();
-    } else {
-      Serial.printf("[HTTPS] Unable to connect\n");
-    }
-
-    return response;
-  }
-
-  static HttpResponse* createDeviceDocument(String localId, String idToken) {
+  static HttpResponse* createFirestoreDocument(String localId, String idToken) {
     DynamicJsonDocument doc(150);
     JsonObject root = doc.to<JsonObject>();
     JsonObject fieldsObj = root.createNestedObject("fields");
@@ -159,70 +84,11 @@ public:
     statusObj["booleanValue"] = false;
     JsonObject stateObj = fieldsObj.createNestedObject("state");
     stateObj["stringValue"] = "ACTIVE";
-
     String payload = JSON::stringify(root);
 
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
-
-    client->setFingerprint(FINGERPRINT);
-    HTTPClient https;
-
-    HttpResponse* response = nullptr;
-
-    if (https.begin(*client, FIRESTORE_BASE_URL + "users/" + localId + "/devices")) {
-
-      https.addHeader("Authorization", "Bearer " + idToken);
-      int httpCode = https.POST(payload);
-
-      if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK) {
-          String payload = https.getString();
-          response = new HttpResponse(httpCode, payload);
-        } else {
-          Serial.printf("[HTTPS] createDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
-        }
-      } else {
-        Serial.printf("[HTTPS] createDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
-      }
-
-      https.end();
-    } else {
-      Serial.printf("[HTTPS] createDeviceDocument Unable to connect\n");
-    }
-
-    return response;
+    return Firestore::createDocument(FIRESTORE_BASE_URL + "users/" + localId + "/devices", payload, idToken);
   }
 
-  static bool deleteDeviceDocument(String deviceId, String localId, String idToken) {
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
-
-    client->setFingerprint(FINGERPRINT);
-    HTTPClient https;
-
-    bool result = false;
-
-    if (https.begin(*client, FIRESTORE_BASE_URL + "users/" + localId + "/devices/" + deviceId)) {
-
-      https.addHeader("Authorization", "Bearer " + idToken);
-      int httpCode = https.DELETE();
-
-      if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK) {
-          result = true;
-        } else {
-          Serial.printf("[HTTPS] deleteDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
-        }
-      } else {
-        Serial.printf("[HTTPS] deleteDeviceDocument GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
-      }
-
-      https.end();
-    } else {
-      Serial.printf("[HTTPS] deleteDeviceDocument Unable to connect\n");
-    }
-
-    return result;
-  }
 
   static bool isReady() {
     FirebaseConfig* config = getFirebaseConfig();
@@ -315,5 +181,53 @@ private:
       if (str[i] == c) return i;
     }
     return -1;
+  }
+
+  static void regerateToken(String refreshToken, String deviceId) {
+    Serial.println("credentials have expired, regenrating token!");
+
+    FirebaseConfig* newConfig = FirebaseAuth::regenerateToken(refreshToken);
+
+    if (!newConfig) {
+      Serial.println("Failed to generate token!");
+    } else {
+      Serial.println("Token generated successfully, saving to file....");
+      String newLocalId = newConfig->getLocalID();
+      String newIdToken = newConfig->getToken();
+      String newRefreshToken = newConfig->getRefreshToken();
+
+      delete newConfig;
+
+      bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
+      if (isSaved) {
+        Serial.println("Token saved successfully");
+      } else {
+        Serial.println("Failed to save token!");
+      }
+    }
+  }
+
+  static void reset() {
+    Serial.println("\nRemoving config files from ESP...");
+
+    if (LittleFS.exists(WIFI_CONFIG_FILE) && !LittleFS.remove(WIFI_CONFIG_FILE)) {
+      Serial.println("\nFailed to remove WiFi config!");
+      return;
+    }
+
+    Serial.println("\nWiFi config file removed successfully.");
+
+    if (LittleFS.exists(FIREBASE_CONFIG_FILE) && !LittleFS.remove(FIREBASE_CONFIG_FILE)) {
+      Serial.println("\nFailed to remove Firebase config!");
+      return;
+    }
+
+    Serial.println("\nFirebase config file removed successfully.");
+
+    Serial.println("\nResetting ESP...");
+
+    delay(2000);
+
+    ESP.reset();
   }
 };

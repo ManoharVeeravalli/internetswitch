@@ -80,7 +80,7 @@ void loop() {
     return;
   }
 
-  String status = Firebase::getStatusFromFirebase();
+  String status = Firebase::getStatusFromFirestore();
 
   if (status.isEmpty()) {
     Serial.println("NA");
@@ -287,7 +287,7 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
     String idToken = (*body)["idToken"].as<String>();
     String refreshToken = (*body)["refreshToken"].as<String>();
 
-    HttpResponse* resp = Firebase::createDeviceDocument(localId, idToken);
+    HttpResponse* resp = Firebase::createFirestoreDocument(localId, idToken);
     if (!resp) {
       server.send(400, "text/plain", "Somer error has occured, Please try again later");
       return;
