@@ -290,35 +290,15 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
     String idToken = (*body)["idToken"].as<String>();
     String refreshToken = (*body)["refreshToken"].as<String>();
 
-    HttpResponse* resp = Firebase::createFirestoreDocument(localId, idToken);
-    if (!resp) {
-      server.send(400, "text/plain", "Somer error has occured, Please try again later");
+    String deviceId = Firestore::createDevice(localId, idToken);
+
+    if (deviceId.isEmpty()) {
+      server.send(500, "text/plain", "Somer error has occured, Please try again later");
       return;
     }
-    int httpStatus = resp->getStatusCode();
-    String body = resp->getBody();
-
-    delete resp;
-
-    if (httpStatus != HTTP_CODE_OK) {
-      server.send(400, "text/plain", "Somer error has occured, Please try again later");
-      return;
-    }
-
-    DynamicJsonDocument* doc = JSON::parse(384, body);
-
-    if (!doc) {
-      server.send(400, "text/plain", "Somer error has occured, Please try again later");
-      return;
-    }
-
-    String name = (*doc)["name"].as<String>();
-
-    delete doc;
-
-    String deviceId = Firebase::getDeviceIDFromName(name);
 
     if (!Firebase::saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
+      //TODO: Delete firebase doc if not able to save
       server.send(500, "text/plain", "Somer error has occured, Please try again later");
       return;
     }

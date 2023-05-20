@@ -9,3 +9,9 @@ const char* REFRESH_TOKEN_URL = "https://securetoken.googleapis.com/v1/token?key
 
 String FIRESTORE_HOST = "firestore.googleapis.com";
 
+String RTDB_HOST = "metrix-3c2e5.firebaseio.com";
+
+String RTDB_BASE_URL = "https://metrix-3c2e5.firebaseio.com/";
+
+
+

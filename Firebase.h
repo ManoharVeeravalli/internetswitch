@@ -74,20 +74,6 @@ public:
   }
 
 
-  static HttpResponse* createFirestoreDocument(String localId, String idToken) {
-    DynamicJsonDocument doc(150);
-    JsonObject root = doc.to<JsonObject>();
-    JsonObject fieldsObj = root.createNestedObject("fields");
-    JsonObject statusObj = fieldsObj.createNestedObject("status");
-    statusObj["booleanValue"] = false;
-    JsonObject stateObj = fieldsObj.createNestedObject("state");
-    stateObj["stringValue"] = "ACTIVE";
-    String payload = JSON::stringify(root);
-
-    return Firestore::createDocument("users/" + localId + "/devices", payload, idToken);
-  }
-
-
   static bool isReady() {
     FirebaseConfig* config = getFirebaseConfig();
 
@@ -159,10 +145,7 @@ public:
     return true;
   }
 
-  static String getDeviceIDFromName(String& name) {
-    int index = indexOfReverse(name, '/');
-    return name.substring(index + 1, name.length());
-  }
+
 private:
   static DynamicJsonDocument* loadFirebaseConfig() {
     File configFile = LittleFS.open(FIREBASE_CONFIG_FILE, "r");
@@ -174,12 +157,7 @@ private:
     return doc;
   }
 
-  static int indexOfReverse(String str, char c) {
-    for (int i = str.length() - 1; i >= 0; i--) {
-      if (str[i] == c) return i;
-    }
-    return -1;
-  }
+
 
   static void regerateToken(String refreshToken, String deviceId) {
     Serial.println("credentials have expired, regenrating token!");

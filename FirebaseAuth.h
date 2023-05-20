@@ -1,4 +1,5 @@
 #include "Fetch.h"
+#include "StringUtils.h"
 #include "FirebaseConfig.h"
 #include "FirebaseConstants.h"
 
