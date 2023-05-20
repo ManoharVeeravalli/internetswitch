@@ -1,65 +1,12 @@
 #include "HardwareSerial.h"
-#include <ESP8266HTTPClient.h>
-#include <WiFiClientSecureBearSSL.h>
-#include "FirebaseConfig.h"
-#include "HttpResponse.h"
+#include "FirebaseAuth.h"
 #include "WiFiClient.h"
 
-
-const char* FIREBASE_CONFIG_FILE = "firebase.json";
-
-const char* FINGERPRINT = "A7 7B 0F F6 B0 8B 9B CA A7 0B 1A 82 76 10 B2 64 10 BB 17 0A";
-
-const char* LOGIN_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyD0o2HHGWp6oP_VTgA5DA4liDGAvXzIOYE";
-
-const char* REFRESH_TOKEN_URL = "https://securetoken.googleapis.com/v1/token?key=AIzaSyD0o2HHGWp6oP_VTgA5DA4liDGAvXzIOYE";
-
-
-String FIRESTORE_BASE_URL = "https://firestore.googleapis.com/v1/projects/metrix-3c2e5/databases/(default)/documents/";
-
-
-
-String HOST = "firestore.googleapis.com";
 
 
 
 class Firebase {
 public:
-  static HttpResponse* signInWithEmailAndPassword(String email, String password) {
-    DynamicJsonDocument doc(200);
-    doc["email"] = email;
-    doc["password"] = password;
-    doc["returnSecureToken"] = true;
-
-    String payload = JSON::stringify(doc);
-
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
-
-    client->setFingerprint(FINGERPRINT);
-
-    HTTPClient https;
-
-    HttpResponse* response = nullptr;
-
-    if (https.begin(*client, HOST, 443, LOGIN_URL, true)) {
-
-      int httpCode = https.POST(payload);
-
-      String payload = https.getString();
-      if (httpCode > 0) {
-        response = new HttpResponse(httpCode, payload);
-      } else {
-        Serial.printf("[HTTPS] signInWithEmailAndPassword POST... failed, error: %d\n", httpCode);
-      }
-
-      https.end();
-    } else {
-      Serial.printf("[HTTPS] signInWithEmailAndPassword Unable to connect\n");
-    }
-
-    return response;
-  }
-
   static String getStatusFromFirebase() {
 
     String result = "";
@@ -95,10 +42,24 @@ public:
 
         Serial.println("credentials have expired, regenrating token!");
 
-        if (regenerateToken(deviceId, refreshToken)) {
-          Serial.println("Token regenerated successfully!");
-        } else {
+        FirebaseConfig* newConfig = FirebaseAuth::regenerateToken(refreshToken);
+
+        if (!newConfig) {
           Serial.println("Failed to generate token!");
+        } else {
+          Serial.println("Token generated successfully, saving to file....");
+          String newLocalId = newConfig->getLocalID();
+          String newIdToken = newConfig->getToken();
+          String newRefreshToken = newConfig->getRefreshToken();
+
+          delete newConfig;
+
+          bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
+          if (isSaved) {
+            Serial.println("Token saved successfully");
+          } else {
+            Serial.println("Failed to save token!");
+          }
         }
 
       } else {
@@ -188,56 +149,6 @@ public:
     }
 
     return response;
-  }
-
-  static bool regenerateToken(String deviceId, String refreshToken) {
-    DynamicJsonDocument doc(384);
-    doc["grant_type"] = "refresh_token";
-    doc["refresh_token"] = refreshToken;
-    String payload = JSON::stringify(doc);
-
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
-
-    client->setFingerprint(FINGERPRINT);
-
-    HTTPClient https;
-
-    bool result = false;
-
-    if (https.begin(*client, HOST, 443, REFRESH_TOKEN_URL, true)) {
-
-      // start connection and send HTTP header
-      int httpCode = https.POST(payload);
-
-      // httpCode will be negative on error
-      if (httpCode > 0) {
-        // HTTP header has been send and Server response header has been handled
-        if (httpCode == HTTP_CODE_OK) {
-          String output = https.getString();
-          DynamicJsonDocument* doc = JSON::parse(3072, output);
-          if (doc) {
-            String newLocalId = (*doc)["user_id"].as<String>();
-            String newIdToken = (*doc)["id_token"].as<String>();
-            String newRefreshToken = (*doc)["refresh_token"].as<String>();
-
-            delete doc;
-
-            bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
-            result = isSaved;
-          }
-        } else {
-          Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
-        }
-      } else {
-        Serial.printf("[HTTPS] POST... failed, error: %s\n", https.errorToString(httpCode).c_str());
-      }
-
-      https.end();
-    } else {
-      Serial.printf("[HTTPS] Unable to connect\n");
-    }
-
-    return result;
   }
 
   static HttpResponse* createDeviceDocument(String localId, String idToken) {

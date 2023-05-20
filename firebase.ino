@@ -6,6 +6,7 @@
 #include "Firebase.h"
 
 
+
 //Establishing Local server at port 80 whenever required
 ESP8266WebServer server(80);
 
@@ -223,7 +224,7 @@ void createWebServer() {
     }
 
 
-    HttpResponse* response = Firebase::signInWithEmailAndPassword(email, password);
+    HttpResponse* response = FirebaseAuth::signInWithEmailAndPassword(email, password);
 
     if (!response) {
       server.send(500, "text/plain", "Somer error has occured, Please try again later");
