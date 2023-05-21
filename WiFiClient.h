@@ -1,3 +1,4 @@
+#include "wl_definitions.h"
 #include "LittleFS.h"
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
@@ -72,6 +73,9 @@ public:
     DynamicJsonDocument doc(128 * n);
     JsonArray array = doc.to<JsonArray>();
     for (int i = 0; i < n; i++) {
+      if (WiFi.encryptionType(i) == ENC_TYPE_NONE) {
+        continue;
+      }
       JsonObject nested = array.createNestedObject();
       nested["ssid"] = WiFi.SSID(i);
       nested["rssi"] = WiFi.RSSI(i);

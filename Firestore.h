@@ -20,9 +20,9 @@ public:
     JsonObject root = payload.to<JsonObject>();
     JsonObject fieldsObj = root.createNestedObject("fields");
     JsonObject statusObj = fieldsObj.createNestedObject("status");
-    statusObj["stringValue"] = "LOW";
+    statusObj["stringValue"] = STATUS_OFF;
     JsonObject stateObj = fieldsObj.createNestedObject("state");
-    stateObj["stringValue"] = "ACTIVE";
+    stateObj["stringValue"] = STATE_ACTIVE;
 
     String deviceID = "";
 

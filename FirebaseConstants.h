@@ -13,5 +13,14 @@ String RTDB_HOST = "metrix-3c2e5.firebaseio.com";
 
 String RTDB_BASE_URL = "https://metrix-3c2e5.firebaseio.com/";
 
+String STATUS_ON = "HIGH";
+
+String STATUS_OFF = "LOW";
+
+String STATE_RESET = "RESET";
+String STATE_ACTIVE = "ACTIVE";
+String STATE_BREAK = "BREAK";
+
+
 
 

@@ -23,8 +23,8 @@ public:
   static String createDevice(String localId, String idToken) {
     DynamicJsonDocument payload(150);
     JsonObject root = payload.to<JsonObject>();
-    root["status"] = "LOW";
-    root["state"] = "ACTIVE";
+    root["status"] = STATUS_OFF;
+    root["state"] = STATE_ACTIVE;
 
     String deviceID = "";
 
@@ -50,7 +50,6 @@ public:
     }
 
     deviceID = (*doc)["name"].as<String>();
-
 
     delete doc;
 

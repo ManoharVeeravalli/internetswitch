@@ -6,7 +6,7 @@ const char* FINGERPRINT = "A7 7B 0F F6 B0 8B 9B CA A7 0B 1A 82 76 10 B2 64 10 BB
 
 const char* RTDB_FINGERPRINT = "91 14 41 84 C3 F8 48 9D 29 56 8C D4 35 43 F6 B8 53 F1 FE FE";
 
-typedef std::function<void(String)> StreamHandler;
+typedef std::function<bool(String)> StreamHandler;
 
 class Fetch {
 
@@ -128,63 +128,48 @@ public:
       if (httpCode > 0) {
         if (httpCode == HTTP_CODE_OK) {
 
-          while (https.connected()) {
+          // get length of document (is -1 when Server sends no Content-Length header)
+          int len = https.getSize();
 
-            if (client->available()) {
+          // create buffer for read
+          static uint8_t buff[128] = { 0 };
 
-              String line1 = client->readStringUntil('\n');
+          // read all data from server
+          while (https.connected() && (len > 0 || len == -1)) {
+            // get available data size
+            size_t size = client->available();
 
-              if (line1.isEmpty()) continue;
-              String line2 = client->readStringUntil('\n');
+            if (size) {
+              // read up to 128 byte
+              int c = client->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
 
-              if (line2.isEmpty()) continue;
+              String body = "";
 
-              String event = line1.substring(line1.indexOf(":") + 2, line1.length());
-              String body = line2.substring(line2.indexOf(":") + 2, line2.length());
-
-              if (event == "auth_revoked" || event == "cancel") break;
-              if (event != "put") continue;
-
-              Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
-
-              String status = "";
-              String state = "";
-
-              DynamicJsonDocument* doc = JSON::parse(200, body);
-              String path = (*doc)["path"].as<String>();
-              if (path == "/") {
-                status = (*doc)["data"]["status"].as<String>();
-                state = (*doc)["data"]["state"].as<String>();
-              } else if (path == "/state") {
-                state = (*doc)["data"].as<String>();
-              } else if (path == "/status") {
-                status = (*doc)["data"].as<String>();
+              for (int i = 0; i < c; i++) {
+                body += ((char)buff[i]);
               }
-              delete doc;
 
-              if (state == "RESET") {
-                response = new HttpResponse(HTTP_CODE_RESET_CONTENT, "");
+              // write it to handler
+              if (handler(body)) {
                 break;
-              }
+              };
 
-              if (!status.isEmpty()) {
-                handler(status);
-              }
+              if (len > 0) { len -= c; }
             }
             delay(1);
           }
-
           Serial.println();
-          Serial.print("[HTTPS] connection closed or file end.\n");
+          Serial.print("[HTTPS] Fetch::ON connection closed or file end.\n");
+          response = new HttpResponse(httpCode, "");
         } else {
           response = new HttpResponse(httpCode, https.getString());
         }
       } else {
-        Serial.printf("[HTTPS] Fetch::GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("[HTTPS] Fetch::ON... failed, error: %s\n", https.errorToString(httpCode).c_str());
       }
       https.end();
     } else {
-      Serial.printf("[HTTPS] Fetch::GET Unable to connect\n");
+      Serial.printf("[HTTPS] Fetch::ON Unable to connect\n");
     }
 
     return response;

@@ -76,18 +76,66 @@ void setup() {
 }
 
 void loop() {
+  Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
   delay(5000);
-  Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
   if (isSetupPending()) {
     Serial.println("Setup pending...");
     digitalWrite(LED_BUILTIN, LOW);
     return;
   }
 
-  Firebase::onStatusChangeRTDB([](String status) {
-    digitalWrite(LED_BUILTIN, status == "HIGH" ? HIGH : LOW);
-    Serial.printf("status: %s", status);
+  Firebase::onStatusChangeRTDB([](String body) {
+    Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
+    return processBody(body);
   });
+}
+
+bool processBody(String body) {
+  if (body.isEmpty()) return false;
+  int index = body.indexOf('\n');
+
+  String eventLine = body.substring(0, index);
+
+  if (eventLine.isEmpty()) return false;
+
+  String dataLine = body.substring(index + 1, body.indexOf('\n', index + 1));
+
+  if (dataLine.isEmpty()) return false;
+
+  String event = eventLine.substring(eventLine.indexOf(":") + 2, eventLine.length());
+  String data = dataLine.substring(dataLine.indexOf(":") + 2, dataLine.length());
+
+  if (event == "auth_revoked" || event == "cancel") return true;
+  if (event == "keep-alive" || event != "put") return false;
+
+  String status = "";
+  String state = "";
+
+  DynamicJsonDocument* doc = JSON::parse(200, data);
+  String path = (*doc)["path"].as<String>();
+  if (path == "/") {
+    status = (*doc)["data"]["status"].as<String>();
+    state = (*doc)["data"]["state"].as<String>();
+  } else if (path == "/state") {
+    state = (*doc)["data"].as<String>();
+  } else if (path == "/status") {
+    status = (*doc)["data"].as<String>();
+  }
+  delete doc;
+
+  if (state == STATE_BREAK) {
+    return true;
+  }
+
+  if (state == STATE_RESET) {
+    if (Firebase::resetRTDB()) {
+      return true;
+    }
+  }
+
+  digitalWrite(LED_BUILTIN, status == STATUS_ON ? HIGH : LOW);
+  Serial.printf("\nstatus: %s", status);
+  return false;
 }
 
 
@@ -303,7 +351,7 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
 
 
     if (!Firebase::saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
-      //TODO: Delete firebase doc if not able to save
+      Firebase::deleteDeviceFromRTDB(localId, deviceId, idToken);
       server.send(500, "text/plain", "Somer error has occured, Please try again later");
       return;
     }

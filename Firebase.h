@@ -9,6 +9,43 @@ const bool isFirestore = false;
 class Firebase {
 public:
 
+
+  static bool deleteDeviceFromRTDB(String localId, String deviceId, String idToken) {
+    if (!FirebaseRTDB::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
+      Serial.println("Failed to delete document from Firebase RTDB!");
+      return false;
+    }
+    Serial.println("Device Deleted successfully.");
+    return true;
+  }
+
+  static bool resetRTDB() {
+    FirebaseConfig* config = getFirebaseConfig();
+
+    if (!config) return false;
+
+    String localId = config->getLocalID();
+    String deviceId = config->getDeviceID();
+    String idToken = config->getToken();
+
+    delete config;
+
+    Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
+    Serial.println("\nReceived RESET command removing document from firebase RTDB...");
+
+    if (!deleteDeviceFromRTDB(localId, deviceId, idToken)) {
+      return false;
+    };
+
+    if (!FirebaseRTDB::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
+      return false;
+    }
+
+    Serial.println("\nDocument deleted from Firebase RTDB successfully!");
+
+    return reset();
+  }
+
   static void onStatusChangeRTDB(StreamHandler callback) {
 
     FirebaseConfig* config = getFirebaseConfig();
@@ -38,23 +75,14 @@ public:
 
     if (httpCode == HTTP_CODE_OK) {
       return;
-    } else if (httpCode == HTTP_CODE_UNAUTHORIZED) {
-      regerateToken(refreshToken, deviceId);
-    } else if (httpCode == HTTP_CODE_RESET_CONTENT) {
-      Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
-      Serial.println("\nReceived RESET command removing document from firebase RTDB...");
-
-      if (!FirebaseRTDB::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
-        Serial.println("\nFailed to delete document from Firebase RTDB!");
-        return;
-      }
-
-      Serial.println("\nDocument deleted from Firebase RTDB successfully!");
-
-      reset();
-    } else {
-      Serial.printf("\nSome Error has Occurred, httpCode: %d", httpCode);
     }
+
+    if (httpCode == HTTP_CODE_UNAUTHORIZED) {
+      regerateToken(refreshToken, deviceId);
+      return;
+    }
+
+    Serial.printf("\nSome Error has Occurred, httpCode: %d", httpCode);
   }
 
   static String getStatusFromFirestore() {
@@ -247,14 +275,14 @@ private:
 
 
   static void regerateToken(String refreshToken, String deviceId) {
-    Serial.println("credentials have expired, regenrating token!");
+    Serial.println("\ncredentials have expired, regenrating token!");
 
     FirebaseConfig* newConfig = FirebaseAuth::regenerateToken(refreshToken);
 
     if (!newConfig) {
       Serial.println("Failed to generate token!");
     } else {
-      Serial.println("Token generated successfully, saving to file....");
+      Serial.println("\nToken generated successfully, saving to file....");
       String newLocalId = newConfig->getLocalID();
       String newIdToken = newConfig->getToken();
       String newRefreshToken = newConfig->getRefreshToken();
