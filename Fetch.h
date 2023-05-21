@@ -6,7 +6,7 @@ const char* FINGERPRINT = "A7 7B 0F F6 B0 8B 9B CA A7 0B 1A 82 76 10 B2 64 10 BB
 
 const char* RTDB_FINGERPRINT = "91 14 41 84 C3 F8 48 9D 29 56 8C D4 35 43 F6 B8 53 F1 FE FE";
 
-typedef std::function<bool(String)> StreamHandler;
+typedef std::function<int(String)> StreamHandler;
 
 class Fetch {
 
@@ -16,8 +16,6 @@ public:
     client->setFingerprint(getFingreprint(host));
     HTTPClient https;
     bool result = false;
-
-    Serial.println(url);
 
     if (https.begin(*client, host, 443, url, true)) {
 
@@ -150,7 +148,8 @@ public:
               }
 
               // write it to handler
-              if (handler(body)) {
+              httpCode = handler(body);
+              if (httpCode != HTTP_CODE_OK) {
                 break;
               };
 

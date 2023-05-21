@@ -19,27 +19,13 @@ public:
     return true;
   }
 
-  static bool resetRTDB() {
-    FirebaseConfig* config = getFirebaseConfig();
-
-    if (!config) return false;
-
-    String localId = config->getLocalID();
-    String deviceId = config->getDeviceID();
-    String idToken = config->getToken();
-
-    delete config;
-
+  static bool resetRTDB(String localId, String deviceId, String idToken) {
     Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
     Serial.println("\nReceived RESET command removing document from firebase RTDB...");
 
     if (!deleteDeviceFromRTDB(localId, deviceId, idToken)) {
       return false;
     };
-
-    if (!FirebaseRTDB::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
-      return false;
-    }
 
     Serial.println("\nDocument deleted from Firebase RTDB successfully!");
 
@@ -79,6 +65,16 @@ public:
 
     if (httpCode == HTTP_CODE_UNAUTHORIZED) {
       regerateToken(refreshToken, deviceId);
+      return;
+    }
+
+    if (httpCode == HTTP_CODE_RESET_CONTENT) {
+      resetRTDB(localId, deviceId, idToken);
+      return;
+    }
+
+    if (httpCode == HTTP_CODE_FORBIDDEN) {
+      Serial.printf("\nRequest Forbidden!");
       return;
     }
 

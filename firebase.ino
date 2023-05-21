@@ -90,23 +90,23 @@ void loop() {
   });
 }
 
-bool processBody(String body) {
-  if (body.isEmpty()) return false;
+int processBody(String body) {
+  if (body.isEmpty()) return HTTP_CODE_OK;
   int index = body.indexOf('\n');
 
   String eventLine = body.substring(0, index);
 
-  if (eventLine.isEmpty()) return false;
+  if (eventLine.isEmpty()) return HTTP_CODE_OK;
 
   String dataLine = body.substring(index + 1, body.indexOf('\n', index + 1));
 
-  if (dataLine.isEmpty()) return false;
+  if (dataLine.isEmpty()) return HTTP_CODE_OK;
 
   String event = eventLine.substring(eventLine.indexOf(":") + 2, eventLine.length());
   String data = dataLine.substring(dataLine.indexOf(":") + 2, dataLine.length());
 
-  if (event == "auth_revoked" || event == "cancel") return true;
-  if (event == "keep-alive" || event != "put") return false;
+  if (event == "auth_revoked" || event == "cancel") return HTTP_CODE_FORBIDDEN;
+  if (event == "keep-alive" || event != "put") return HTTP_CODE_OK;
 
   String status = "";
   String state = "";
@@ -124,18 +124,16 @@ bool processBody(String body) {
   delete doc;
 
   if (state == STATE_BREAK) {
-    return true;
+    return HTTP_CODE_FORBIDDEN;
   }
 
-  if (state == STATE_RESET) {
-    if (Firebase::resetRTDB()) {
-      return true;
-    }
+   if (state == STATE_RESET) {
+    return HTTP_CODE_RESET_CONTENT;
   }
 
   digitalWrite(LED_BUILTIN, status == STATUS_ON ? HIGH : LOW);
   Serial.printf("\nstatus: %s", status);
-  return false;
+  return HTTP_CODE_OK;
 }
 
 
