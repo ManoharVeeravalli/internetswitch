@@ -1,3 +1,4 @@
+#include "ESP8266HTTPClient.h"
 #include "HardwareSerial.h"
 #include "Firestore.h"
 

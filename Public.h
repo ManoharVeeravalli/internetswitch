@@ -9,10 +9,10 @@ const char STYLES[] PROGMEM = R"=====(
     --text-color-2: rgb(17 24 49 / 1);
     --white-overlay: rgba(255, 255, 255, .5);
     --error: red;
-}
-
-* {
-    font-family: sans-serif;
+    --color-gray: #b5bdc4;
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-synthesis: none;
 }
 
 .flex-center {
@@ -32,9 +32,7 @@ body {
 }
 
 .box {
-    border-width: 1px;
-    border-style: solid;
-    border-color: var(--primary-hover);
+    border: 1px solid var(--color-gray);
     background-color: var(--secondary);
     margin: 20px;
     border-radius: 5px;

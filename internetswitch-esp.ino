@@ -106,7 +106,7 @@ int processBody(String body) {
   String data = dataLine.substring(dataLine.indexOf(":") + 2, dataLine.length());
 
   if (event == "auth_revoked" || event == "cancel") return HTTP_CODE_FORBIDDEN;
-  if (event == "keep-alive" || event != "put") return HTTP_CODE_OK;
+  if (event == "keep-alive") return HTTP_CODE_OK;
 
   String status = "";
   String state = "";
@@ -130,6 +130,8 @@ int processBody(String body) {
    if (state == STATE_RESET) {
     return HTTP_CODE_RESET_CONTENT;
   }
+
+  if(status.isEmpty()) return HTTP_CODE_OK;
 
   digitalWrite(LED_BUILTIN, status == STATUS_ON ? HIGH : LOW);
   Serial.printf("\nstatus: %s", status);
@@ -379,7 +381,7 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
   String message = "BAD_REQUEST";
 
   if (errorCode == "EMAIL_NOT_FOUND") {
-    message = "Please signup using app to continue";
+    message = "Please signup & register to continue";
   }
   if (errorCode == "INVALID_PASSWORD") {
     message = "Please enter valid email/password";
