@@ -160,6 +160,7 @@ public:
           Serial.print("\n[HTTPS] Fetch::ON connection closed or file end.\n");
           response = new HttpResponse(httpCode, "");
         } else {
+          Serial.printf("\n[HTTPS] Fetch::ON... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
           response = new HttpResponse(httpCode, https.getString());
         }
       } else {

@@ -66,6 +66,7 @@ void setup() {
   Serial.println("\nWaiting...");
 
   while (isSetupPending()) {
+    Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
     Serial.print(".");
     delay(100);
     server.handleClient();
@@ -123,15 +124,21 @@ int processBody(String body) {
   }
   delete doc;
 
+
+
   if (state == STATE_BREAK) {
     return HTTP_CODE_FORBIDDEN;
   }
 
-   if (state == STATE_RESET) {
+  if (state == STATE_RESET) {
     return HTTP_CODE_RESET_CONTENT;
   }
 
-  if(status.isEmpty()) return HTTP_CODE_OK;
+  if (status.isEmpty()) return HTTP_CODE_OK;
+
+  if (status == "null" && event == "put") {
+    return HTTP_CODE_RESET_CONTENT;
+  }
 
   digitalWrite(LED_BUILTIN, status == STATUS_ON ? HIGH : LOW);
   Serial.printf("\nstatus: %s", status);
