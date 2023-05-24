@@ -1,10 +1,9 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
+#include "FirebaseConstants.h"
 #include "HttpResponse.h"
 
-const char* FINGERPRINT = "A7 7B 0F F6 B0 8B 9B CA A7 0B 1A 82 76 10 B2 64 10 BB 17 0A";
 
-const char* RTDB_FINGERPRINT = "91 14 41 84 C3 F8 48 9D 29 56 8C D4 35 43 F6 B8 53 F1 FE FE";
 
 typedef std::function<int(String)> StreamHandler;
 
@@ -29,15 +28,15 @@ public:
         if (httpCode == HTTP_CODE_OK) {
           result = true;
         } else {
-          Serial.printf("[HTTPS] Fetch::DELETE DELETE... failed, error: %s\n", https.errorToString(httpCode).c_str());
+          Serial.printf("\n[HTTPS] Fetch::DELETE DELETE... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
         }
       } else {
-        Serial.printf("[HTTPS] Fetch::DELETE DELETE... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("\n[HTTPS] Fetch::DELETE DELETE... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
       }
 
       https.end();
     } else {
-      Serial.printf("[HTTPS] deleteDocument Unable to connect\n");
+      Serial.printf("\n[HTTPS] deleteDocument Unable to connect url: %s\n", url.c_str());
     }
 
     return result;
@@ -63,12 +62,12 @@ public:
         String payload = https.getString();
         response = new HttpResponse(httpCode, payload);
       } else {
-        Serial.printf("[HTTPS] Fetch::POST POST... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("\n[HTTPS] Fetch::POST POST... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
       }
 
       https.end();
     } else {
-      Serial.printf("[HTTPS]  Fetch::POST  Unable to connect\n");
+      Serial.printf("\n[HTTPS]  Fetch::POST  Unable to connect\n");
     }
 
     return response;
@@ -94,11 +93,11 @@ public:
         String payload = https.getString();
         response = new HttpResponse(httpCode, payload);
       } else {
-        Serial.printf("[HTTPS] Fetch::GET GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("\n[HTTPS] Fetch::GET GET... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
       }
       https.end();
     } else {
-      Serial.printf("[HTTPS] Fetch::GET Unable to connect\n");
+      Serial.printf("\n[HTTPS] Fetch::GET Unable to connect\n");
     }
 
     return response;
@@ -158,17 +157,17 @@ public:
             delay(1);
           }
           Serial.println();
-          Serial.print("[HTTPS] Fetch::ON connection closed or file end.\n");
+          Serial.print("\n[HTTPS] Fetch::ON connection closed or file end.\n");
           response = new HttpResponse(httpCode, "");
         } else {
           response = new HttpResponse(httpCode, https.getString());
         }
       } else {
-        Serial.printf("[HTTPS] Fetch::ON... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        Serial.printf("\n[HTTPS] Fetch::ON... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
       }
       https.end();
     } else {
-      Serial.printf("[HTTPS] Fetch::ON Unable to connect\n");
+      Serial.printf("\n[HTTPS] Fetch::ON Unable to connect, url: %s\n", url.c_str());
     }
 
     return response;
@@ -176,9 +175,11 @@ public:
 
 private:
   static const char* getFingreprint(String host) {
-    if (host == "metrix-3c2e5.firebaseio.com") {
+    if (host == "internetswitch-d4d02-default-rtdb.firebaseio.com") {
+      Serial.println("\nRTDB_FINGERPRINT");
       return RTDB_FINGERPRINT;
     }
+    Serial.println("\nFINGERPRINT");
     return FINGERPRINT;
   }
 };

@@ -1,6 +1,6 @@
 #include "ESP8266HTTPClient.h"
 #include "HardwareSerial.h"
-#include "Firestore.h"
+#include "FirebaseAuth.h"
 
 
 class FirebaseRTDB {
@@ -32,6 +32,7 @@ public:
     HttpResponse* resp = createDocument("users/" + localId + "/devices", JSON::stringify(root), idToken);
 
     if (!resp) {
+      Serial.println("\Error: Invalid Response!");
       return deviceID;
     }
 
@@ -41,6 +42,7 @@ public:
     delete resp;
 
     if (httpStatus != HTTP_CODE_OK) {
+      Serial.printf("\nError: invalid status code %d\n", httpStatus);
       return deviceID;
     }
 

@@ -332,11 +332,12 @@ void createWebServer() {
 
 void handleLogin(int statusCode, DynamicJsonDocument* body) {
   if (statusCode == 200) {
+    Serial.println("\nsignin successful");
     String localId = (*body)["localId"].as<String>();
     String idToken = (*body)["idToken"].as<String>();
     String refreshToken = (*body)["refreshToken"].as<String>();
 
-    Serial.println("creating device....");
+    Serial.println("\ncreating device....");
 
 
     String deviceId = Firebase::createDevice(localId, idToken);

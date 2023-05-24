@@ -3,9 +3,6 @@
 #include "WiFiClient.h"
 
 
-const bool isFirestore = false;
-
-
 class Firebase {
 public:
 
@@ -81,80 +78,8 @@ public:
     Serial.printf("\nSome Error has Occurred, httpCode: %d", httpCode);
   }
 
-  static String getStatusFromFirestore() {
-
-    String result = "";
-
-    FirebaseConfig* config = getFirebaseConfig();
-
-    if (!config) return result;
-
-    String localId = config->getLocalID();
-    String deviceId = config->getDeviceID();
-    String idToken = config->getToken();
-    String refreshToken = config->getRefreshToken();
-
-    delete config;
-
-    HttpResponse* response = Firestore::getDocument("users/" + localId + "/devices/" + deviceId, idToken);
-
-    if (!response) {
-      Serial.println("Some Error has Occurred!");
-      return result;
-    }
-
-    int httpCode = response->getStatusCode();
-    String body = response->getBody();
-
-    delete response;
-
-    if (httpCode != HTTP_CODE_OK) {
-      if (httpCode == HTTP_CODE_UNAUTHORIZED) {
-        regerateToken(refreshToken, deviceId);
-      } else {
-        Serial.printf("Some Error has Occurred, httpCode: %d", httpCode);
-      }
-      return result;
-    }
-
-    DynamicJsonDocument* doc = JSON::parse(384, body);
-
-    if (!doc) {
-      Serial.println("Some Error has Occurred!");
-      return result;
-    }
-
-    const bool status = (*doc)["fields"]["status"]["booleanValue"].as<bool>();
-    String state = (*doc)["fields"]["state"]["stringValue"].as<String>();
-
-
-    delete doc;
-
-    if (state && state == "RESET") {
-      Serial.println("\nReceived RESET command removing document from Firestore...");
-
-      if (!Firestore::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
-        Serial.println("\nFailed to delete document from Firebase Firestore!");
-        return result;
-      }
-
-      Serial.println("\nDocument deleted from Firebase Firestore successfully!");
-
-      reset();
-
-      return result;
-    }
-
-    result = status ? "HIGH" : "LOW";
-
-    return result;
-  }
 
   static String createDevice(String localId, String idToken) {
-    if (isFirestore) {
-      return Firestore::createDevice(localId, idToken);
-    }
-
     return FirebaseRTDB::createDevice(localId, idToken);
   }
 
