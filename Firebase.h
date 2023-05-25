@@ -126,10 +126,10 @@ public:
     }
 
 
-    bool isLocalId = doc->containsKey("localId");
-    bool isIdToken = doc->containsKey("idToken");
-    bool isRefreshToken = doc->containsKey("refreshToken");
-    bool isDeviceId = doc->containsKey("deviceId");
+    bool isLocalId = doc->containsKey(LOCAL_ID);
+    bool isIdToken = doc->containsKey(ID_TOKEN);
+    bool isRefreshToken = doc->containsKey(REFRESH_TOKEN);
+    bool isDeviceId = doc->containsKey(DEVICE_ID);
 
 
     if (!isLocalId || !isIdToken || !isRefreshToken || !isDeviceId) {
@@ -138,10 +138,10 @@ public:
     }
 
 
-    String localId = (*doc)["localId"].as<String>();
-    String idToken = (*doc)["idToken"].as<String>();
-    String refreshToken = (*doc)["refreshToken"].as<String>();
-    String deviceId = (*doc)["deviceId"].as<String>();
+    String localId = (*doc)[LOCAL_ID].as<String>();
+    String idToken = (*doc)[ID_TOKEN].as<String>();
+    String refreshToken = (*doc)[REFRESH_TOKEN].as<String>();
+    String deviceId = (*doc)[DEVICE_ID].as<String>();
 
     delete doc;
 
@@ -163,10 +163,10 @@ public:
     }
 
     StaticJsonDocument<1536> doc;
-    doc["localId"] = localId;
-    doc["idToken"] = idToken;
-    doc["refreshToken"] = refreshToken;
-    doc["deviceId"] = deviceId;
+    doc[LOCAL_ID] = localId;
+    doc[ID_TOKEN] = idToken;
+    doc[REFRESH_TOKEN] = refreshToken;
+    doc[DEVICE_ID] = deviceId;
 
 
     File configFile = LittleFS.open(FIREBASE_CONFIG_FILE, "w");

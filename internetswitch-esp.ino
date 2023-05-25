@@ -340,9 +340,9 @@ void createWebServer() {
 void handleLogin(int statusCode, DynamicJsonDocument* body) {
   if (statusCode == 200) {
     Serial.println("\nsignin successful");
-    String localId = (*body)["localId"].as<String>();
-    String idToken = (*body)["idToken"].as<String>();
-    String refreshToken = (*body)["refreshToken"].as<String>();
+    String localId = (*body)[LOCAL_ID].as<String>();
+    String idToken = (*body)[ID_TOKEN].as<String>();
+    String refreshToken = (*body)[REFRESH_TOKEN].as<String>();
 
     delete body;
 

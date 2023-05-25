@@ -48,9 +48,9 @@ public:
       return config;
     }
 
-    String newLocalId = (*doc)["user_id"].as<String>();
-    String newIdToken = (*doc)["id_token"].as<String>();
-    String newRefreshToken = (*doc)["refresh_token"].as<String>();
+    String newLocalId = (*doc)[LOCAL_ID_REGENERATE].as<String>();
+    String newIdToken = (*doc)[ID_TOKEN_REGENERATE].as<String>();
+    String newRefreshToken = (*doc)[REFRESH_TOKEN_REGENERATE].as<String>();
     String deviceId = "";
 
     delete doc;
