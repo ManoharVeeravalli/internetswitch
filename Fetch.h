@@ -10,30 +10,25 @@ typedef std::function<int(String)> StreamHandler;
 class Fetch {
 
 public:
-  static bool DELETE(String host, String url, String idToken) {
+  static bool DELETE(String url) {
     std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
-    client->setFingerprint(getFingreprint(host));
+    client->setInsecure();
     HTTPClient https;
     bool result = false;
 
-    if (https.begin(*client, host, 443, url, true)) {
-
-      if (!idToken.isEmpty()) {
-        https.addHeader("Authorization", "Bearer " + idToken);
-      }
+    if (https.begin(*client, url)) {
 
       int httpCode = https.DELETE();
 
       if (httpCode > 0) {
+        Serial.printf("\n[HTTPS] Fetch::DELETE httpCode: %d, url: %s\n", httpCode, url.c_str());
         if (httpCode == HTTP_CODE_OK) {
           result = true;
         } else {
-          Serial.printf("\n[HTTPS] Fetch::DELETE DELETE... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
         }
       } else {
-        Serial.printf("\n[HTTPS] Fetch::DELETE DELETE... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
+        Serial.printf("\n[HTTPS] Fetch::DELETE failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
       }
-
       https.end();
     } else {
       Serial.printf("\n[HTTPS] deleteDocument Unable to connect url: %s\n", url.c_str());
@@ -43,57 +38,48 @@ public:
   }
 
 
-  static HttpResponse* POST(String host, String url, String payload, String idToken) {
-
+  static HttpResponse* POST(String url, String payload) {
     std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
 
-    client->setFingerprint(getFingreprint(host));
+    client->setInsecure();
     HTTPClient https;
 
     HttpResponse* response = nullptr;
-
-    if (https.begin(*client, host, 443, url, true)) {
-      if (!idToken.isEmpty()) {
-        https.addHeader("Authorization", "Bearer " + idToken);
-      }
+    if (https.begin(*client, url)) {
       int httpCode = https.POST(payload);
-
       if (httpCode > 0) {
+        Serial.printf("\n[HTTPS] Fetch::POST httpCode: %d, url: %s\n", httpCode, url.c_str());
         String payload = https.getString();
         response = new HttpResponse(httpCode, payload);
       } else {
-        Serial.printf("\n[HTTPS] Fetch::POST POST... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
+        Serial.printf("\n[HTTPS] Fetch::POST failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
       }
-
       https.end();
     } else {
       Serial.printf("\n[HTTPS]  Fetch::POST  Unable to connect\n");
     }
-
     return response;
   }
 
-  static HttpResponse* GET(String host, String url, String idToken) {
+  static HttpResponse* GET(String url) {
     std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
 
-    client->setFingerprint(getFingreprint(host));
+    client->setInsecure();
 
     HTTPClient https;
 
     HttpResponse* response = nullptr;
 
-    if (https.begin(*client, host, 443, url, true)) {  // HTTPS
+    if (https.begin(*client, url)) {
 
-      if (!idToken.isEmpty()) {
-        https.addHeader("Authorization", "Bearer " + idToken);
-      }
       int httpCode = https.GET();
 
       if (httpCode > 0) {
+        Serial.printf("\n[HTTPS] Fetch::GET httpCode: %d, url: %s\n", httpCode, url.c_str());
         String payload = https.getString();
         response = new HttpResponse(httpCode, payload);
       } else {
-        Serial.printf("\n[HTTPS] Fetch::GET GET... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
+        Serial.printf("\n[HTTPS] Fetch::GET failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
       }
       https.end();
     } else {
@@ -103,26 +89,23 @@ public:
     return response;
   }
 
-  static HttpResponse* ON(String host, String url, String idToken, StreamHandler handler) {
+  static HttpResponse* ON(String url, StreamHandler handler) {
     std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
 
-    client->setFingerprint(getFingreprint(host));
+    client->setInsecure();
 
     HTTPClient https;
 
     HttpResponse* response = nullptr;
 
-    if (https.begin(*client, host, 443, url, true)) {  // HTTPS
+    if (https.begin(*client, url)) {
 
       https.addHeader("Accept", "text/event-stream");
-
-      if (!idToken.isEmpty()) {
-        https.addHeader("Authorization", "Bearer " + idToken);
-      }
 
       int httpCode = https.GET();
 
       if (httpCode > 0) {
+        Serial.printf("\n[HTTPS] Fetch::ON httpCode: %d, url: %s\n", httpCode, url.c_str());
         if (httpCode == HTTP_CODE_OK) {
 
           // get length of document (is -1 when Server sends no Content-Length header)
@@ -156,15 +139,11 @@ public:
             }
             delay(1);
           }
-          Serial.println();
           Serial.print("\n[HTTPS] Fetch::ON connection closed or file end.\n");
-          response = new HttpResponse(httpCode, "");
-        } else {
-          Serial.printf("\n[HTTPS] Fetch::ON... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
-          response = new HttpResponse(httpCode, https.getString());
         }
+        response = new HttpResponse(httpCode, https.getString());
       } else {
-        Serial.printf("\n[HTTPS] Fetch::ON... failed, error: %s, url: %s\n", https.errorToString(httpCode).c_str(), url.c_str());
+        Serial.printf("\n[HTTPS] Fetch::ON failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
       }
       https.end();
     } else {
@@ -172,15 +151,5 @@ public:
     }
 
     return response;
-  }
-
-private:
-  static const char* getFingreprint(String host) {
-    if (host == "internetswitch-d4d02-default-rtdb.firebaseio.com") {
-      Serial.println("\nRTDB_FINGERPRINT");
-      return RTDB_FINGERPRINT;
-    }
-    Serial.println("\nFINGERPRINT");
-    return FINGERPRINT;
   }
 };

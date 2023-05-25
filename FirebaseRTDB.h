@@ -6,19 +6,19 @@
 class FirebaseRTDB {
 public:
   static bool deleteDocument(String path, String idToken) {
-    return Fetch::DELETE(RTDB_HOST, "/" + path + ".json?auth=" + idToken, "");
+    return Fetch::DELETE(RTDB_BASE_URL + path + ".json?auth=" + idToken);
   }
 
   static HttpResponse* createDocument(String path, String payload, String idToken) {
-    return Fetch::POST(RTDB_HOST, "/" + path + ".json?auth=" + idToken, payload, "");
+    return Fetch::POST(RTDB_BASE_URL + path + ".json?auth=" + idToken, payload);
   }
 
   static HttpResponse* getDocument(String path, String idToken) {
-    return Fetch::GET(RTDB_HOST, "/" + path + ".json?auth=" + idToken, "");
+    return Fetch::GET(RTDB_BASE_URL + path + ".json?auth=" + idToken);
   }
 
   static HttpResponse* onDocumentChange(String path, String idToken, StreamHandler callback) {
-    return Fetch::ON(RTDB_HOST, "/" + path + ".json?auth=" + idToken, "", callback);
+    return Fetch::ON(RTDB_BASE_URL + path + ".json?auth=" + idToken, callback);
   }
 
   static String createDevice(String localId, String idToken) {

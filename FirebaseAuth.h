@@ -15,7 +15,7 @@ public:
 
     String payload = JSON::stringify(doc);
 
-    return Fetch::POST(FIRESTORE_HOST, LOGIN_URL, payload, "");
+    return Fetch::POST(LOGIN_URL, payload);
   }
 
   static FirebaseConfig* regenerateToken(String refreshToken) {
@@ -25,7 +25,7 @@ public:
 
     FirebaseConfig* config = nullptr;
 
-    HttpResponse* response = Fetch::POST(FIRESTORE_HOST, REFRESH_TOKEN_URL, JSON::stringify(payload), "");
+    HttpResponse* response = Fetch::POST(REFRESH_TOKEN_URL, JSON::stringify(payload));
 
     if(!response) {
       Serial.println("\ninvalid response");

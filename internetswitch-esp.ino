@@ -344,6 +344,8 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
     String idToken = (*body)["idToken"].as<String>();
     String refreshToken = (*body)["refreshToken"].as<String>();
 
+    delete body;
+
     Serial.println("\ncreating device....");
 
 

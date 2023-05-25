@@ -79,6 +79,32 @@ public:
   }
 
 
+  static bool createDeviceAndSaveConfig(String localId, String idToken, String refreshToken) {
+
+
+    Serial.println("\ncreating device....");
+
+
+    String deviceId = createDevice(localId, idToken);
+
+
+    if (deviceId.isEmpty()) {
+      return false;
+    }
+
+    Serial.println("device created successfully!");
+
+    if (!saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
+      deleteDeviceFromRTDB(localId, deviceId, idToken);
+      return false;
+    }
+
+    Serial.println("\nFirebase configurations saved successfully!");
+
+    return true;
+  }
+
+
   static String createDevice(String localId, String idToken) {
     return FirebaseRTDB::createDevice(localId, idToken);
   }
