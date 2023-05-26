@@ -42,7 +42,7 @@ public:
 
     delete config;
 
-    String path = "users/" + localId + "/devices/" + deviceId;
+    String path = "users/" + localId + "/devices/" + deviceId + "/details";
 
     HttpResponse* response = FirebaseRTDB::onDocumentChange(path, idToken, callback);
 
@@ -78,6 +78,41 @@ public:
     Serial.printf("\nSome Error has Occurred, httpCode: %d", httpCode);
   }
 
+  static void recordDeviceHistory(String message) {
+    Serial.println("\nrecoding device history....");
+    FirebaseConfig* config = getFirebaseConfig();
+
+    if (!config) return;
+
+    String localId = config->getLocalID();
+    String deviceId = config->getDeviceID();
+    String idToken = config->getToken();
+    String refreshToken = config->getRefreshToken();
+
+    delete config;
+    DynamicJsonDocument payload(200);
+    JsonObject root = payload.to<JsonObject>();
+    root["message"] = message;
+    JsonObject createdAt = root.createNestedObject("createdAt");
+    createdAt[SERVER_VALUE] = FIREBASE_TIMESTAMP;
+
+    HttpResponse* response = FirebaseRTDB::createDocument("users/" + localId + "/devices/" + deviceId + "/history", JSON::stringify(payload), idToken);
+    int statusCode = response->getStatusCode();
+    String body = response->getBody();
+    delete response;
+
+    if (statusCode == HTTP_CODE_OK) {
+      Serial.println("History recorded successfully");
+      return;
+    }
+    if (statusCode == HTTP_CODE_UNAUTHORIZED) {
+      Serial.println("Auth token expired!");
+      regerateToken(refreshToken, deviceId);
+      recordDeviceHistory(message);
+      return;
+    }
+    Serial.println("Failed to record history");
+  }
 
   static bool createDeviceAndSaveConfig(String localId, String idToken, String refreshToken) {
 

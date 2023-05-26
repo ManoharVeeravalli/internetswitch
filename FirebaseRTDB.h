@@ -13,10 +13,6 @@ public:
     return Fetch::POST(RTDB_BASE_URL + path + ".json?auth=" + idToken, payload);
   }
 
-  static HttpResponse* getDocument(String path, String idToken) {
-    return Fetch::GET(RTDB_BASE_URL + path + ".json?auth=" + idToken);
-  }
-
   static HttpResponse* onDocumentChange(String path, String idToken, StreamHandler callback) {
     return Fetch::ON(RTDB_BASE_URL + path + ".json?auth=" + idToken, callback);
   }
@@ -24,8 +20,9 @@ public:
   static String createDevice(String localId, String idToken) {
     DynamicJsonDocument payload(150);
     JsonObject root = payload.to<JsonObject>();
-    root["status"] = STATUS_OFF;
-    root["state"] = STATE_ACTIVE;
+    JsonObject details = root.createNestedObject("details");
+    details["status"] = STATUS_OFF;
+    details["state"] = STATE_ACTIVE;
 
     String deviceID = "";
 

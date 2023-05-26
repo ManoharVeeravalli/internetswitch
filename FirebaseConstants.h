@@ -12,6 +12,10 @@ String STATE_RESET = "RESET";
 String STATE_ACTIVE = "ACTIVE";
 String STATE_BREAK = "BREAK";
 
+const char* FIREBASE_TIMESTAMP = "timestamp";
+const char* SERVER_VALUE = ".sv";
+
+
 const char* LOCAL_ID = "localId";
 const char* ID_TOKEN = "idToken";
 const char* REFRESH_TOKEN = "refreshToken";

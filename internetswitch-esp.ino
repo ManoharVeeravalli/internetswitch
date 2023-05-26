@@ -151,6 +151,7 @@ void onSetupComplete() {
   server.stop();
   WiFi.mode(WIFI_STA);
   Serial.println("\nSetup ready, proceeding to firebase....");
+  Firebase::recordDeviceHistory("Device is setup successfully");
 }
 
 bool isSetupPending() {
