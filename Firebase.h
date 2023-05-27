@@ -107,8 +107,9 @@ public:
     }
     if (statusCode == HTTP_CODE_UNAUTHORIZED) {
       Serial.println("Auth token expired!");
-      regerateToken(refreshToken, deviceId);
-      recordDeviceHistory(message);
+      if(regerateToken(refreshToken, deviceId)) {
+        recordDeviceHistory(message);
+      }
       return;
     }
     Serial.println("Failed to record history");
@@ -256,27 +257,28 @@ private:
 
 
 
-  static void regerateToken(String refreshToken, String deviceId) {
+  static bool regerateToken(String refreshToken, String deviceId) {
     Serial.println("\ncredentials have expired, regenrating token!");
 
     FirebaseConfig* newConfig = FirebaseAuth::regenerateToken(refreshToken);
 
     if (!newConfig) {
       Serial.println("Failed to generate token!");
+      return false;
+    } 
+    Serial.println("\nToken generated successfully, saving to file....");
+    String newLocalId = newConfig->getLocalID();
+    String newIdToken = newConfig->getToken();
+    String newRefreshToken = newConfig->getRefreshToken();
+
+    delete newConfig;
+
+    bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
+    if (isSaved) {
+      Serial.println("Token saved successfully");
     } else {
-      Serial.println("\nToken generated successfully, saving to file....");
-      String newLocalId = newConfig->getLocalID();
-      String newIdToken = newConfig->getToken();
-      String newRefreshToken = newConfig->getRefreshToken();
-
-      delete newConfig;
-
-      bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
-      if (isSaved) {
-        Serial.println("Token saved successfully");
-      } else {
-        Serial.println("Failed to save token!");
-      }
+      Serial.println("Failed to save token!");
     }
+    return isSaved;
   }
 };

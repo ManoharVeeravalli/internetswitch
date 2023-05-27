@@ -5,8 +5,6 @@
 #include "Public.h"
 #include "Firebase.h"
 
-
-
 //Establishing Local server at port 80 whenever required
 ESP8266WebServer server(80);
 
