@@ -64,14 +64,17 @@ void setup() {
   Serial.println("\nWaiting...");
 
   while (isSetupPending()) {
-    Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
+    //Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
     Serial.print(".");
     delay(100);
     server.handleClient();
     MDNS.update();
   }
+  Serial.println("\nSetup Completed, Resetting ESP.....");
 
-  onSetupComplete();
+  delay(2000);
+
+  ESP.reset();
 }
 
 void loop() {
@@ -242,16 +245,6 @@ void createWebServer() {
     delete config;
 
 
-    // String ssid = config->getSSID();
-    // String pass = config->getPassword();
-
-    // delete config;
-
-    // if (!WifiClient::testWifi(ssid, pass)) {
-    //   server.send(500, "application/json", "Some error has occured, please refresh and try again!");
-    //   return;
-    // }
-
 
     if (!(WiFi.status() == WL_CONNECTED)) {
       server.send(400, "text/plain", "Wifi Not Available, Please Refresh!");
@@ -302,6 +295,8 @@ void createWebServer() {
     delete body;
 
     server.send(200, "text/plain", "Success!");
+
+    delay(2000);
   });
   server.on("/save", []() {
     //Check if body received
@@ -333,6 +328,8 @@ void createWebServer() {
     Serial.println("\nWiFi credentials saved successfully!");
 
     server.send(200, "application/json", "Credentials Saved!");
+
+    delay(2000);
   });
 }
 
@@ -368,6 +365,9 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
     Serial.println("\nFirebase configurations saved successfully!");
 
     server.send(200, "text/plain", "Device Registered <span style='color: var(--primary);'>Successfully</span></span>");
+
+
+    Serial.println("\nResetting ESP.....");
 
     delay(2000);
 
