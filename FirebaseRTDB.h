@@ -29,7 +29,7 @@ public:
     HttpResponse* resp = createDocument("users/" + localId + "/devices", JSON::stringify(root), idToken);
 
     if (!resp) {
-      Serial.println("\Error: Invalid Response!");
+      Serial.println(F("\Error: Invalid Response!"));
       return deviceID;
     }
 

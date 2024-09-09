@@ -1,4 +1,4 @@
-
+#include "IsValid.h"
 const char STYLES[] PROGMEM = R"=====(
 :root {
     --primary: rgb(79 70 229 / 1);

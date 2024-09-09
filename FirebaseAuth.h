@@ -28,7 +28,7 @@ public:
     HttpResponse* response = Fetch::POST(REFRESH_TOKEN_URL, JSON::stringify(payload));
 
     if(!response) {
-      Serial.println("\ninvalid response");
+      Serial.println(F("\ninvalid response"));
       return config;
     }
 

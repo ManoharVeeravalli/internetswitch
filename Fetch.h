@@ -56,7 +56,7 @@ public:
       }
       https.end();
     } else {
-      Serial.printf("\n[HTTPS]  Fetch::POST  Unable to connect\n");
+      Serial.println(F("\n[HTTPS]  Fetch::POST  Unable to connect\n"));
     }
     return response;
   }
@@ -83,7 +83,7 @@ public:
       }
       https.end();
     } else {
-      Serial.printf("\n[HTTPS] Fetch::GET Unable to connect\n");
+      Serial.println(F("\n[HTTPS] Fetch::GET Unable to connect\n"));
     }
 
     return response;
@@ -139,7 +139,7 @@ public:
             }
             delay(1);
           }
-          Serial.print("\n[HTTPS] Fetch::ON connection closed or file end.\n");
+          Serial.println(F("\n[HTTPS] Fetch::ON connection closed or file end.\n"));
         }
         response = new HttpResponse(httpCode, https.getString());
       } else {

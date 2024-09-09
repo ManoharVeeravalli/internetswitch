@@ -8,7 +8,7 @@
 //Establishing Local server at port 80 whenever required
 ESP8266WebServer server(80);
 
-const char* HOSTNAME = "internetswitch";
+const char* HOSTNAME = "internetswitch"; //visit "internetswitch.local" to access the app
 
 void setup() {
   Serial.begin(115200);
@@ -22,7 +22,7 @@ void setup() {
 
   delay(3000);
 
-  Serial.println("Disconnecting from current WiFi connection");
+  Serial.println(F("Disconnecting from current WiFi connection"));
   WiFi.disconnect();
 
   //Setup LED AS OUTPUT
@@ -30,9 +30,9 @@ void setup() {
 
 
   //Initializing file system
-  Serial.println("Mounting FS...");
+  Serial.println(F("Mounting FS..."));
   if (!LittleFS.begin()) {
-    Serial.println("Failed to mount file system");
+    Serial.println(F("Failed to mount file system"));
     return;
   }
 
@@ -49,28 +49,28 @@ void setup() {
     return;
   };
 
-  Serial.println("Setup not ready, turning on HotSpot!");
+  Serial.println(F("Setup not ready, turning on HotSpot!"));
 
   //Start mDNS
-  Serial.println("Starting MDNS...");
+  Serial.println(F("Starting MDNS..."));
   if (!MDNS.begin(HOSTNAME)) {
-    Serial.println("Failed to start MDNS");
+    Serial.println(F("Failed to start MDNS"));
     return;
   }
 
   setupAP();
   launchWeb();
 
-  Serial.println("\nWaiting...");
+  Serial.println(F("\nWaiting..."));
 
   while (isSetupPending()) {
     //Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
-    Serial.print(".");
+    Serial.print(F("."));
     delay(100);
     server.handleClient();
     MDNS.update();
   }
-  Serial.println("\nSetup Completed, Resetting ESP.....");
+  Serial.println(F("\nSetup Completed, Resetting ESP....."));
 
   delay(2000);
 
@@ -81,7 +81,7 @@ void loop() {
   Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
   delay(5000);
   if (isSetupPending()) {
-    Serial.println("Setup pending...");
+    Serial.println(F("Setup pending..."));
     digitalWrite(LED_BUILTIN, LOW);
     return;
   }
@@ -141,8 +141,12 @@ int processBody(String body) {
     return HTTP_CODE_RESET_CONTENT;
   }
 
+  if (status == "null" && event == "patch") {
+    return HTTP_CODE_OK;
+  }
+
   digitalWrite(LED_BUILTIN, status == STATUS_ON ? HIGH : LOW);
-  Serial.printf("\nstatus: %s", status);
+  Serial.printf("\nstatus: %s, event: %s", status, event);
   return HTTP_CODE_OK;
 }
 
@@ -151,7 +155,7 @@ void onSetupComplete() {
   MDNS.end();
   server.stop();
   WiFi.mode(WIFI_STA);
-  Serial.println("\nSetup ready, proceeding to firebase....");
+  Serial.println(F("\nSetup ready, proceeding to firebase...."));
   Firebase::recordDeviceHistory("Device is setup successfully");
 }
 
@@ -165,18 +169,16 @@ bool isSetupPending() {
 
 bool isWiFiEnabled() {
   //Read file for ssid and pass
-  WiFiConfig* config = WifiClient::getWifiConfig();
-  if (!config) {
+  WiFiConfig config = WifiClient::getWifiConfig();
+  if (!config.isValid()) {
     return false;
   }
 
-  String ssid = config->getSSID();
-  String password = config->getPassword();
-
-  delete config;
+  String ssid = config.getSSID();
+  String password = config.getPassword();
 
   if (!WifiClient::testWifi(ssid, password)) {
-    Serial.println("\n WiFi Not available!");
+    Serial.println(F("\n WiFi Not available!"));
     return false;
   }
 
@@ -184,26 +186,26 @@ bool isWiFiEnabled() {
 }
 
 void setupAP(void) {
-  Serial.println("Initializing hotspot....");
+  Serial.println(F("Initializing hotspot...."));
   // WifiClient::disconnect();
   delay(100);
   WiFi.softAP("InternetSwitch", "");
-  Serial.println("Hotspot Initialized!");
+  Serial.println(F("Hotspot Initialized!"));
 }
 
 void launchWeb() {
-  Serial.println("");
+  Serial.println();
   delay(1000);
   if (WiFi.status() == WL_CONNECTED)
-    Serial.println("WiFi connected");
-  Serial.print("Local IP: ");
+    Serial.println(F("WiFi connected"));
+  Serial.print(F("Local IP: "));
   Serial.println(WiFi.localIP());
-  Serial.print("SoftAP IP: ");
+  Serial.print(F("SoftAP IP: "));
   Serial.println(WiFi.softAPIP());
   createWebServer();
   // Start the server
   server.begin();
-  Serial.println("Server started");
+  Serial.println(F("Server started"));
 }
 
 const char* html() {
@@ -237,12 +239,11 @@ void createWebServer() {
       server.send(400, "text/plain", "Body not received");
       return;
     }
-    WiFiConfig* config = WifiClient::getWifiConfig();
-    if (!config) {
+    WiFiConfig config = WifiClient::getWifiConfig();
+    if (!config.isValid()) {
       server.send(400, "text/plain", "Wifi Not Available, Please Refresh!");
       return;
     }
-    delete config;
 
 
 
@@ -325,7 +326,7 @@ void createWebServer() {
       return;
     }
 
-    Serial.println("\nWiFi credentials saved successfully!");
+    Serial.println(F("\nWiFi credentials saved successfully!"));
 
     server.send(200, "application/json", "Credentials Saved!");
 
@@ -335,14 +336,14 @@ void createWebServer() {
 
 void handleLogin(int statusCode, DynamicJsonDocument* body) {
   if (statusCode == 200) {
-    Serial.println("\nsignin successful");
+    Serial.println(F("\nsignin successful"));
     String localId = (*body)[LOCAL_ID].as<String>();
     String idToken = (*body)[ID_TOKEN].as<String>();
     String refreshToken = (*body)[REFRESH_TOKEN].as<String>();
 
     delete body;
 
-    Serial.println("\ncreating device....");
+    Serial.println(F("\ncreating device...."));
 
 
     String deviceId = Firebase::createDevice(localId, idToken);
@@ -353,7 +354,7 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
       return;
     }
 
-    Serial.println("device created successfully!");
+    Serial.println(F("device created successfully!"));
 
 
     if (!Firebase::saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
@@ -362,15 +363,14 @@ void handleLogin(int statusCode, DynamicJsonDocument* body) {
       return;
     }
 
-    Serial.println("\nFirebase configurations saved successfully!");
+    Serial.println(F("\nFirebase configurations saved successfully!"));
 
     server.send(200, "text/plain", "Device Registered <span style='color: var(--primary);'>Successfully</span></span>");
 
 
-    Serial.println("\nResetting ESP.....");
+    Serial.println(F("\nResetting ESP....."));
 
     delay(2000);
-
 
     ESP.reset();
   }

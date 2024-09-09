@@ -9,22 +9,22 @@ public:
 
   static bool deleteDeviceFromRTDB(String localId, String deviceId, String idToken) {
     if (!FirebaseRTDB::deleteDocument("users/" + localId + "/devices/" + deviceId, idToken)) {
-      Serial.println("Failed to delete document from Firebase RTDB!");
+      Serial.println(F("Failed to delete document from Firebase RTDB!"));
       return false;
     }
-    Serial.println("Device Deleted successfully.");
+    Serial.println(F("Device Deleted successfully."));
     return true;
   }
 
   static bool resetRTDB(String localId, String deviceId, String idToken) {
     Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d \n", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
-    Serial.println("\nReceived RESET command removing document from firebase RTDB...");
+    Serial.println(F("\nReceived RESET command removing document from firebase RTDB..."));
 
     if (!deleteDeviceFromRTDB(localId, deviceId, idToken)) {
       return false;
     };
 
-    Serial.println("\nDocument deleted from Firebase RTDB successfully!");
+    Serial.println(F("\nDocument deleted from Firebase RTDB successfully!"));
 
     return reset();
   }
@@ -47,7 +47,7 @@ public:
     HttpResponse* response = FirebaseRTDB::onDocumentChange(path, idToken, callback);
 
     if (!response) {
-      Serial.println("\nSome Error has Occurred!");
+      Serial.println(F("\nSome Error has Occurred!"));
       return;
     }
 
@@ -71,7 +71,7 @@ public:
     }
 
     if (httpCode == HTTP_CODE_FORBIDDEN) {
-      Serial.printf("\nRequest Forbidden!");
+      Serial.println(F("\nRequest Forbidden!"));
       return;
     }
 
@@ -79,7 +79,7 @@ public:
   }
 
   static void recordDeviceHistory(String message) {
-    Serial.println("\nrecoding device history....");
+    Serial.println(F("\nrecoding device history...."));
     FirebaseConfig* config = getFirebaseConfig();
 
     if (!config) return;
@@ -102,23 +102,23 @@ public:
     delete response;
 
     if (statusCode == HTTP_CODE_OK) {
-      Serial.println("History recorded successfully");
+      Serial.println(F("History recorded successfully"));
       return;
     }
     if (statusCode == HTTP_CODE_UNAUTHORIZED) {
-      Serial.println("Auth token expired!");
+      Serial.println(F("Auth token expired!"));
       if(regerateToken(refreshToken, deviceId)) {
         recordDeviceHistory(message);
       }
       return;
     }
-    Serial.println("Failed to record history");
+    Serial.println(F("Failed to record history"));
   }
 
   static bool createDeviceAndSaveConfig(String localId, String idToken, String refreshToken) {
 
 
-    Serial.println("\ncreating device....");
+    Serial.println(F("\ncreating device...."));
 
 
     String deviceId = createDevice(localId, idToken);
@@ -128,14 +128,14 @@ public:
       return false;
     }
 
-    Serial.println("device created successfully!");
+    Serial.println(F("device created successfully!"));
 
     if (!saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
       deleteDeviceFromRTDB(localId, deviceId, idToken);
       return false;
     }
 
-    Serial.println("\nFirebase configurations saved successfully!");
+    Serial.println(F("\nFirebase configurations saved successfully!"));
 
     return true;
   }
@@ -193,7 +193,7 @@ public:
   static bool saveFirebaseConfig(String& localId, String& idToken, String& refreshToken, String& deviceId) {
     if (LittleFS.exists(FIREBASE_CONFIG_FILE)) {
       if (!LittleFS.remove(FIREBASE_CONFIG_FILE)) {
-        Serial.println("Failed to remove config file for writing");
+        Serial.println(F("Failed to remove config file for writing"));
         return false;
       }
     }
@@ -207,7 +207,7 @@ public:
 
     File configFile = LittleFS.open(FIREBASE_CONFIG_FILE, "w");
     if (!configFile) {
-      Serial.println("Failed to open firebase config file for writing");
+      Serial.println(F("Failed to open firebase config file for writing"));
       return false;
     }
 
@@ -218,23 +218,23 @@ public:
   }
 
   static bool reset() {
-    Serial.println("\nRemoving config files from ESP...");
+    Serial.println(F("\nRemoving config files from ESP..."));
 
     if (LittleFS.exists(WIFI_CONFIG_FILE) && !LittleFS.remove(WIFI_CONFIG_FILE)) {
-      Serial.println("\nFailed to remove WiFi config!");
+      Serial.println(F("\nFailed to remove WiFi config!"));
       return false;
     }
 
-    Serial.println("\nWiFi config file removed successfully.");
+    Serial.println(F("\nWiFi config file removed successfully."));
 
     if (LittleFS.exists(FIREBASE_CONFIG_FILE) && !LittleFS.remove(FIREBASE_CONFIG_FILE)) {
-      Serial.println("\nFailed to remove Firebase config!");
+      Serial.println(F("\nFailed to remove Firebase config!"));
       return false;
     }
 
-    Serial.println("\nFirebase config file removed successfully.");
+    Serial.println(F("\nFirebase config file removed successfully."));
 
-    Serial.println("\nResetting ESP...");
+    Serial.println(F("\nResetting ESP..."));
 
     delay(2000);
 
@@ -258,15 +258,15 @@ private:
 
 
   static bool regerateToken(String refreshToken, String deviceId) {
-    Serial.println("\ncredentials have expired, regenrating token!");
+    Serial.println(F("\ncredentials have expired, regenrating token!"));
 
     FirebaseConfig* newConfig = FirebaseAuth::regenerateToken(refreshToken);
 
     if (!newConfig) {
-      Serial.println("Failed to generate token!");
+      Serial.println(F("Failed to generate token!"));
       return false;
     } 
-    Serial.println("\nToken generated successfully, saving to file....");
+    Serial.println(F("\nToken generated successfully, saving to file...."));
     String newLocalId = newConfig->getLocalID();
     String newIdToken = newConfig->getToken();
     String newRefreshToken = newConfig->getRefreshToken();
@@ -275,9 +275,9 @@ private:
 
     bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
     if (isSaved) {
-      Serial.println("Token saved successfully");
+      Serial.println(F("Token saved successfully"));
     } else {
-      Serial.println("Failed to save token!");
+      Serial.println(F("Failed to save token!"));
     }
     return isSaved;
   }

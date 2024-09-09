@@ -1,6 +1,6 @@
 
 
-class FirebaseConfig {
+class FirebaseConfig : public IsValid {
 private:
   String localId_;
   String idToken_;
@@ -13,6 +13,12 @@ public:
     refreshToken_ = refreshToken;
     deciveId_ = deciveId;
   }
+  FirebaseConfig() {
+    localId_ = "";
+    idToken_ = "";
+    refreshToken_ = "";
+    deciveId_ = "";
+  }
   String getLocalID() {
     return localId_;
   }
@@ -24,5 +30,12 @@ public:
   }
   String getDeviceID() {
     return deciveId_;
+  }
+
+  bool isValid() const override {
+    if (localId_.isEmpty() || idToken_.isEmpty() || refreshToken_.isEmpty()) {
+      return false;
+    }
+    return true;
   }
 };
