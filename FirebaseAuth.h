@@ -8,24 +8,28 @@ class FirebaseAuth {
 public:
 
   static HttpResponse* signInWithEmailAndPassword(String email, String password) {
-    DynamicJsonDocument doc(200);
+    StaticJsonDocument<200> doc;
     doc["email"] = email;
     doc["password"] = password;
     doc["returnSecureToken"] = true;
 
-    String payload = JSON::stringify(doc);
+    String payload = "";
+    serializeJson(doc, payload);
 
     return Fetch::POST(LOGIN_URL, payload);
   }
 
   static FirebaseConfig regenerateToken(String refreshToken) {
-    DynamicJsonDocument payload(384);
+    StaticJsonDocument<384> payload;
     payload["grant_type"] = "refresh_token";
     payload["refresh_token"] = refreshToken;
 
+    String requestBody = "";
+    serializeJson(payload, requestBody);
+
     FirebaseConfig config;
 
-    HttpResponse* response = Fetch::POST(REFRESH_TOKEN_URL, JSON::stringify(payload));
+    HttpResponse* response = Fetch::POST(REFRESH_TOKEN_URL, requestBody);
 
     if(!response) {
       Serial.println(F("\ninvalid response"));

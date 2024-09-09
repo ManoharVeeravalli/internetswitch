@@ -18,11 +18,14 @@ public:
   }
 
   static String createDevice(String localId, String idToken) {
-    DynamicJsonDocument payload(150);
+    StaticJsonDocument<150> payload;
     JsonObject root = payload.to<JsonObject>();
     JsonObject details = root.createNestedObject("details");
     details["status"] = STATUS_OFF;
     details["state"] = STATE_ACTIVE;
+
+    String requestBody = "";
+    serializeJson(payload, requestBody);
 
     String deviceID = "";
 

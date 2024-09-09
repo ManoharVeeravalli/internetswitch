@@ -312,7 +312,7 @@ void createWebServer() {
     auto responseBody = std::make_unique<DynamicJsonDocument>(2048);
     DeserializationError error1 = deserializeJson(*responseBody, response->getBody());
     int statusCode = response->getStatusCode();
-    delete response;  // Ensure this is appropriate for your response management
+    delete response;
 
     if (error1) {
         Serial.print(F("Failed to parse JSON: "));
