@@ -1,6 +1,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
+#include <memory>
 #include "FS.h"
 #include "Public.h"
 #include "Firebase.h"
@@ -35,11 +36,6 @@ void setup() {
     Serial.println(F("Failed to mount file system"));
     return;
   }
-
-  //only dev
-  // LittleFS.remove(WIFI_CONFIG_FILE);
-  // LittleFS.remove(FIREBASE_CONFIG_FILE);
-
 
   WiFi.mode(WIFI_AP_STA);
 
@@ -113,19 +109,23 @@ int processBody(String body) {
   String status = "";
   String state = "";
 
-  DynamicJsonDocument* doc = JSON::parse(200, data);
-  String path = (*doc)["path"].as<String>();
-  if (path == "/") {
-    status = (*doc)["data"]["status"].as<String>();
-    state = (*doc)["data"]["state"].as<String>();
-  } else if (path == "/state") {
-    state = (*doc)["data"].as<String>();
-  } else if (path == "/status") {
-    status = (*doc)["data"].as<String>();
+  StaticJsonDocument<200> doc;
+  DeserializationError error = deserializeJson(doc, data);
+  if (error) {
+    Serial.println(F("Failed to parse JSON"));
+    Serial.println(error.c_str()); 
+    return HTTP_CODE_OK;
   }
-  delete doc;
+  String path = doc["path"].as<String>();
 
-
+  if (path == "/") {
+      status = doc["data"]["status"].as<String>();
+      state = doc["data"]["state"].as<String>();
+  } else if (path == "/state") {
+      state = doc["data"].as<String>();
+  } else if (path == "/status") {
+      status = doc["data"].as<String>();
+  }
 
   if (state == STATE_BREAK) {
     return HTTP_CODE_FORBIDDEN;
@@ -234,87 +234,25 @@ void createWebServer() {
   server.on("/scan", []() {
     server.send(200, "application/json", WifiClient::scanWiFi());
   });
-  server.on("/login", []() {
-    if (server.hasArg("plain") == false) {
-      server.send(400, "text/plain", "Body not received");
-      return;
-    }
-    WiFiConfig config = WifiClient::getWifiConfig();
-    if (!config.isValid()) {
-      server.send(400, "text/plain", "Wifi Not Available, Please Refresh!");
-      return;
-    }
-
-
-
-    if (!(WiFi.status() == WL_CONNECTED)) {
-      server.send(400, "text/plain", "Wifi Not Available, Please Refresh!");
-      return;
-    }
-
-    DynamicJsonDocument* doc = JSON::parse(server.arg("plain"));
-    if (!doc) {
-      server.send(400, "text/plain", "Invalid Body");
-      return;
-    }
-    String email = (*doc)["email"].as<String>();
-    String password = (*doc)["password"].as<String>();
-
-    delete doc;
-
-    if (email == "") {
-      server.send(400, "text/plain", "Invalid Credentials!");
-      return;
-    }
-
-    if (password == "") {
-      server.send(400, "text/plain", "Invalid Credentials!");
-      return;
-    }
-
-
-    HttpResponse* response = FirebaseAuth::signInWithEmailAndPassword(email, password);
-
-    if (!response) {
-      server.send(500, "text/plain", "Somer error has occured, Please try again later");
-      return;
-    }
-
-    DynamicJsonDocument* body = response->json(2048);
-
-    int statusCode = response->getStatusCode();
-
-    delete response;
-
-    if (!body) {
-      server.send(500, "text/plain", "Invalid response from firebase");
-      return;
-    }
-
-    handleLogin(statusCode, body);
-
-    delete body;
-
-    server.send(200, "text/plain", "Success!");
-
-    delay(2000);
-  });
   server.on("/save", []() {
     //Check if body received
     if (server.hasArg("plain") == false) {
       server.send(400, "text/plain", "Body not received");
       return;
     }
-    DynamicJsonDocument* doc = JSON::parse(server.arg("plain"));
-    if (!doc) {
+
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, server.arg("plain"));
+    if (error) {
+      Serial.println(F("Failed to parse JSON"));
+      Serial.println(error.c_str()); 
       server.send(400, "text/plain", "invalid request");
       return;
     }
 
-    String ssid = (*doc)["ssid"].as<String>();
-    String password = (*doc)["password"].as<String>();
+    String ssid = doc["ssid"].as<String>();
+    String password = doc["password"].as<String>();
 
-    delete doc;
 
     if (!WifiClient::testWifi(ssid, password)) {
       server.send(400, "application/json", "Invalid ssid/password!");
@@ -332,72 +270,115 @@ void createWebServer() {
 
     delay(2000);
   });
-}
-
-void handleLogin(int statusCode, DynamicJsonDocument* body) {
-  if (statusCode == 200) {
-    Serial.println(F("\nsignin successful"));
-    String localId = (*body)[LOCAL_ID].as<String>();
-    String idToken = (*body)[ID_TOKEN].as<String>();
-    String refreshToken = (*body)[REFRESH_TOKEN].as<String>();
-
-    delete body;
-
-    Serial.println(F("\ncreating device...."));
-
-
-    String deviceId = Firebase::createDevice(localId, idToken);
-
-
-    if (deviceId.isEmpty()) {
-      server.send(500, "text/plain", "Somer error has occured, Please try again later");
-      return;
+  server.on("/login", []() {
+    if (!server.hasArg("plain")) {
+        server.send(400, "text/plain", "Body not received");
+        return;
     }
 
-    Serial.println(F("device created successfully!"));
-
-
-    if (!Firebase::saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
-      Firebase::deleteDeviceFromRTDB(localId, deviceId, idToken);
-      server.send(500, "text/plain", "Somer error has occured, Please try again later");
-      return;
+    WiFiConfig config = WifiClient::getWifiConfig();
+    if (!config.isValid() || WiFi.status() != WL_CONNECTED) {
+        server.send(400, "text/plain", "Wifi Not Available, Please Refresh!");
+        return;
     }
 
-    Serial.println(F("\nFirebase configurations saved successfully!"));
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, server.arg("plain"));
 
-    server.send(200, "text/plain", "Device Registered <span style='color: var(--primary);'>Successfully</span></span>");
+    if (error) {
+        Serial.print(F("Failed to parse JSON: "));
+        Serial.println(error.c_str());
+        server.send(400, "text/plain", "Invalid Body");
+        return;
+    }
 
+    String email = doc["email"].as<String>();
+    String password = doc["password"].as<String>();
 
-    Serial.println(F("\nResetting ESP....."));
+    if (email.isEmpty() || password.isEmpty()) {
+        server.send(400, "text/plain", "Invalid Credentials!");
+        return;
+    }
 
-    delay(2000);
+    HttpResponse* response = FirebaseAuth::signInWithEmailAndPassword(email, password);
 
-    ESP.reset();
-  }
+    if (!response) {
+        server.send(500, "text/plain", "Some error has occurred. Please try again later.");
+        return;
+    }
 
-  if (statusCode != 400) {
-    server.send(500, "text/plain", "Somer error has occured, Please try again later");
-    return;
-  }
+    auto responseBody = std::make_unique<DynamicJsonDocument>(2048);
+    DeserializationError error1 = deserializeJson(*responseBody, response->getBody());
+    int statusCode = response->getStatusCode();
+    delete response;  // Ensure this is appropriate for your response management
 
-  if (!(body->containsKey("error"))) {
-    server.send(500, "text/plain", "Somer error has occured, Please try again later");
-    return;
-  }
+    if (error1) {
+        Serial.print(F("Failed to parse JSON: "));
+        Serial.println(error1.c_str());
+        server.send(500, "text/plain", "Invalid response from firebase");
+        return;
+    }
 
-  String errorCode = (*body)["error"]["message"].as<String>();
-
-  String message = "BAD_REQUEST";
-
-  if (errorCode == "EMAIL_NOT_FOUND") {
-    message = "Please signup & register to continue";
-  }
-  if (errorCode == "INVALID_PASSWORD") {
-    message = "Please enter valid email/password";
-  }
-  if (errorCode == "USER_DISABLED") {
-    message = "You are disabled, Please reach out to support";
-  }
-
-  server.send(400, "text/plain", message);
+    handleLogin(statusCode, std::move(responseBody));
+  });
 }
+
+void handleLogin(int statusCode, std::unique_ptr<DynamicJsonDocument> body) {
+    if (!body) {
+        server.send(500, "text/plain", "Invalid body received");
+        return;
+    }
+
+    if (statusCode == 200) {
+        Serial.println(F("\nSignin successful"));
+
+        String localId = (*body)["localId"].as<String>();
+        String idToken = (*body)["idToken"].as<String>();
+        String refreshToken = (*body)["refreshToken"].as<String>();
+
+        Serial.println(F("\nCreating device..."));
+
+        String deviceId = Firebase::createDevice(localId, idToken);
+        if (deviceId.isEmpty()) {
+            server.send(500, "text/plain", "Some error has occurred. Please try again later.");
+            return;
+        }
+
+        Serial.println(F("Device created successfully!"));
+
+        if (!Firebase::saveFirebaseConfig(localId, idToken, refreshToken, deviceId)) {
+            Firebase::deleteDeviceFromRTDB(localId, deviceId, idToken);
+            server.send(500, "text/plain", "Some error has occurred. Please try again later.");
+            return;
+        }
+
+        Serial.println(F("\nFirebase configurations saved successfully!"));
+
+        server.send(200, "text/plain", "Device Registered <span style='color: var(--primary);'>Successfully</span></span>");
+
+        Serial.println(F("\nResetting ESP..."));
+        delay(2000);
+        ESP.reset();
+    } else if (statusCode == 400) {
+        if (!body->containsKey("error")) {
+            server.send(500, "text/plain", "Some error has occurred. Please try again later.");
+            return;
+        }
+
+        String errorCode = (*body)["error"]["message"].as<String>();
+        String message = "BAD_REQUEST";
+
+        if (errorCode == "EMAIL_NOT_FOUND") {
+            message = "Please signup & register to continue";
+        } else if (errorCode == "INVALID_PASSWORD") {
+            message = "Please enter a valid email/password";
+        } else if (errorCode == "USER_DISABLED") {
+            message = "Your account is disabled, Please reach out to support.";
+        }
+
+        server.send(400, "text/plain", message);
+    } else {
+        server.send(500, "text/plain", "Some error has occurred. Please try again later.");
+    }
+}
+
