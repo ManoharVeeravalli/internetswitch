@@ -41,15 +41,17 @@ public:
       return deviceID;
     }
 
-    DynamicJsonDocument* doc = JSON::parse(384, body);
+    StaticJsonDocument<384> doc;
 
-    if (!doc) {
+    DeserializationError error = deserializeJson(doc, body);
+
+    if (error) {
+      Serial.print(F("Failed to parse JSON: "));
+      Serial.println(error.c_str());
       return deviceID;
     }
 
     String name = (*doc)["name"].as<String>();
-
-    delete doc;
 
     deviceID = getDeviceIDFromName(name);
 

@@ -18,12 +18,12 @@ public:
     return Fetch::POST(LOGIN_URL, payload);
   }
 
-  static FirebaseConfig* regenerateToken(String refreshToken) {
+  static FirebaseConfig regenerateToken(String refreshToken) {
     DynamicJsonDocument payload(384);
     payload["grant_type"] = "refresh_token";
     payload["refresh_token"] = refreshToken;
 
-    FirebaseConfig* config = nullptr;
+    FirebaseConfig config;
 
     HttpResponse* response = Fetch::POST(REFRESH_TOKEN_URL, JSON::stringify(payload));
 
@@ -42,20 +42,22 @@ public:
       return config;
     }
 
-    DynamicJsonDocument* doc = JSON::parse(3072, body);
+    auto doc = std::make_unique<DynamicJsonDocument>(3072);
+    DeserializationError error = deserializeJson(*doc, body);
 
-    if (!doc) {
-      return config;
+    if (error) {
+        Serial.print(F("Failed to parse JSON: "));
+        Serial.println(error.c_str());
+        return config;
     }
+
 
     String newLocalId = (*doc)[LOCAL_ID_REGENERATE].as<String>();
     String newIdToken = (*doc)[ID_TOKEN_REGENERATE].as<String>();
     String newRefreshToken = (*doc)[REFRESH_TOKEN_REGENERATE].as<String>();
     String deviceId = "";
 
-    delete doc;
-
-    config = new FirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
+    config = FirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
 
     return config;
   }

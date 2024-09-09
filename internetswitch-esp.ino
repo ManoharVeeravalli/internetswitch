@@ -29,6 +29,8 @@ void setup() {
   //Setup LED AS OUTPUT
   pinMode(LED_BUILTIN, OUTPUT);
 
+  digitalWrite(LED_BUILTIN, LOW);
+
 
   //Initializing file system
   Serial.println(F("Mounting FS..."));
@@ -354,10 +356,14 @@ void handleLogin(int statusCode, std::unique_ptr<DynamicJsonDocument> body) {
 
         Serial.println(F("\nFirebase configurations saved successfully!"));
 
+        Serial.println(F("\nInforming Client"));
+
         server.send(200, "text/plain", "Device Registered <span style='color: var(--primary);'>Successfully</span></span>");
 
+        Serial.println(F("\nClient informed successfully!"));
+
         Serial.println(F("\nResetting ESP..."));
-        delay(2000);
+        delay(5000);
         ESP.reset();
     } else if (statusCode == 400) {
         if (!body->containsKey("error")) {

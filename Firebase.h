@@ -31,16 +31,14 @@ public:
 
   static void onStatusChangeRTDB(StreamHandler callback) {
 
-    FirebaseConfig* config = getFirebaseConfig();
+    FirebaseConfig config = getFirebaseConfig();
 
-    if (!config) return;
+    if (!config.isValid()) return;
 
-    String localId = config->getLocalID();
-    String deviceId = config->getDeviceID();
-    String idToken = config->getToken();
-    String refreshToken = config->getRefreshToken();
-
-    delete config;
+    String localId = config.getLocalID();
+    String deviceId = config.getDeviceID();
+    String idToken = config.getToken();
+    String refreshToken = config.getRefreshToken();
 
     String path = "users/" + localId + "/devices/" + deviceId + "/details";
 
@@ -80,17 +78,16 @@ public:
 
   static void recordDeviceHistory(String message) {
     Serial.println(F("\nrecoding device history...."));
-    FirebaseConfig* config = getFirebaseConfig();
+    FirebaseConfig config = getFirebaseConfig();
 
-    if (!config) return;
+    if (!config.isValid()) return;
 
-    String localId = config->getLocalID();
-    String deviceId = config->getDeviceID();
-    String idToken = config->getToken();
-    String refreshToken = config->getRefreshToken();
+    String localId = config.getLocalID();
+    String deviceId = config.getDeviceID();
+    String idToken = config.getToken();
+    String refreshToken = config.getRefreshToken();
 
-    delete config;
-    DynamicJsonDocument payload(200);
+    StaticJsonDocument<200> payload;
     JsonObject root = payload.to<JsonObject>();
     root["message"] = message;
     JsonObject createdAt = root.createNestedObject("createdAt");
@@ -147,30 +144,34 @@ public:
 
 
   static bool isReady() {
-    FirebaseConfig* config = getFirebaseConfig();
-
-    if (!config) return false;
-
-    delete config;
-    return true;
+    FirebaseConfig config = getFirebaseConfig();
+    return config.isValid();
   }
 
-  static FirebaseConfig* getFirebaseConfig() {
-    DynamicJsonDocument* doc = loadFirebaseConfig();
-    if (!doc) {
-      return nullptr;
+  static FirebaseConfig getFirebaseConfig() {
+    FirebaseConfig config;
+    File configFile = LittleFS.open(FIREBASE_CONFIG_FILE, "r");
+    if (!configFile) {
+      return config;
+    }
+    auto doc = std::make_unique<DynamicJsonDocument>(1536);
+    DeserializationError error = deserializeJson(*doc, configFile);
+    configFile.close();
+
+    if (error) {
+        Serial.print(F("Failed to parse JSON: "));
+        Serial.println(error.c_str());
+        return config;
     }
 
+    bool hasLocalId = doc->containsKey(LOCAL_ID);
+    bool hasIdToken = doc->containsKey(ID_TOKEN);
+    bool hasRefreshToken = doc->containsKey(REFRESH_TOKEN);
+    bool hasDeviceId = doc->containsKey(DEVICE_ID);
 
-    bool isLocalId = doc->containsKey(LOCAL_ID);
-    bool isIdToken = doc->containsKey(ID_TOKEN);
-    bool isRefreshToken = doc->containsKey(REFRESH_TOKEN);
-    bool isDeviceId = doc->containsKey(DEVICE_ID);
 
-
-    if (!isLocalId || !isIdToken || !isRefreshToken || !isDeviceId) {
-      delete doc;
-      return nullptr;
+    if (!hasLocalId || !hasIdToken || !hasRefreshToken || !hasDeviceId) {
+      return config;
     }
 
 
@@ -179,13 +180,11 @@ public:
     String refreshToken = (*doc)[REFRESH_TOKEN].as<String>();
     String deviceId = (*doc)[DEVICE_ID].as<String>();
 
-    delete doc;
-
     if (localId.isEmpty() || idToken.isEmpty() || refreshToken.isEmpty() || deviceId.isEmpty()) {
-      return nullptr;
+      return config;
     }
 
-    FirebaseConfig* config = new FirebaseConfig(localId, idToken, refreshToken, deviceId);
+    config = FirebaseConfig(localId, idToken, refreshToken, deviceId);
 
     return config;
   }
@@ -245,33 +244,21 @@ public:
 
 
 private:
-  static DynamicJsonDocument* loadFirebaseConfig() {
-    File configFile = LittleFS.open(FIREBASE_CONFIG_FILE, "r");
-    if (!configFile) {
-      return nullptr;
-    }
-    DynamicJsonDocument* doc = JSON::parse(1536, configFile);
-    configFile.close();
-    return doc;
-  }
-
-
 
   static bool regerateToken(String refreshToken, String deviceId) {
     Serial.println(F("\ncredentials have expired, regenrating token!"));
 
-    FirebaseConfig* newConfig = FirebaseAuth::regenerateToken(refreshToken);
+    FirebaseConfig newConfig = FirebaseAuth::regenerateToken(refreshToken);
 
-    if (!newConfig) {
+    if (!newConfig.isValid()) {
       Serial.println(F("Failed to generate token!"));
       return false;
-    } 
-    Serial.println(F("\nToken generated successfully, saving to file...."));
-    String newLocalId = newConfig->getLocalID();
-    String newIdToken = newConfig->getToken();
-    String newRefreshToken = newConfig->getRefreshToken();
+    }
 
-    delete newConfig;
+    Serial.println(F("\nToken generated successfully, saving to file...."));
+    String newLocalId = newConfig.getLocalID();
+    String newIdToken = newConfig.getToken();
+    String newRefreshToken = newConfig.getRefreshToken();
 
     bool isSaved = saveFirebaseConfig(newLocalId, newIdToken, newRefreshToken, deviceId);
     if (isSaved) {
