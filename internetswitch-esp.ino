@@ -11,6 +11,8 @@ ESP8266WebServer server(80);
 
 const char* HOSTNAME = "internetswitch"; //visit "internetswitch.local" to access the app
 
+#define TTL 7200000  // 2 hours in milliseconds
+
 void setup() {
   Serial.begin(115200);
   Serial.println();
@@ -39,8 +41,11 @@ void setup() {
     return;
   }
 
-  WiFi.mode(WIFI_AP_STA);
+  //Only Dev
+  // LittleFS.remove(WIFI_CONFIG_FILE);
+  // LittleFS.remove(FIREBASE_CONFIG_FILE);
 
+  WiFi.mode(WIFI_AP_STA);
 
   if (isWiFiEnabled() && !isSetupPending()) {
     onSetupComplete();
@@ -79,12 +84,14 @@ void loop() {
   Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
   delay(5000);
   if (isSetupPending()) {
-    Serial.println(F("Setup pending..."));
+    Serial.println(F("\nSetup pending..."));
     digitalWrite(LED_BUILTIN, LOW);
     return;
   }
 
-  Firebase::onStatusChangeRTDB([](String body) {
+  Firebase::ping(); //We are seding this structure to update timestamp {"ping":{".sv":"timestamp"}}
+
+  Firebase::onStatusChangeRTDB(TTL, [](String body) { //this will break every 30 seconds...
     Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
     return processBody(body);
   });

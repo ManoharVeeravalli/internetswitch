@@ -1,4 +1,3 @@
-#include "JSON.h"
 
 class HttpResponse : public IsValid {
 private:
@@ -20,12 +19,6 @@ public:
   }
   String getBody() {
     return body_;
-  }
-  DynamicJsonDocument* json(int size) {
-    return JSON::parse(size, body_);
-  }
-  DynamicJsonDocument* json() {
-    return JSON::parse(body_);
   }
   bool isValid() const override {
     return statusCode_ != 0;

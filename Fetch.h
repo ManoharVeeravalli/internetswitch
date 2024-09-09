@@ -38,6 +38,30 @@ public:
   }
 
 
+  static HttpResponse* PATCH(String url, String payload) {
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+
+    client->setInsecure();
+    HTTPClient https;
+
+    HttpResponse* response = nullptr;
+    if (https.begin(*client, url)) {
+      int httpCode = https.PATCH(payload);
+      if (httpCode > 0) {
+        Serial.printf("\n[HTTPS] Fetch::PATCH httpCode: %d, url: %s\n", httpCode, url.c_str());
+        String payload = https.getString();
+        response = new HttpResponse(httpCode, payload);
+      } else {
+        Serial.printf("\n[HTTPS] Fetch::PATCH failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
+      }
+      https.end();
+    } else {
+      Serial.println(F("\n[HTTPS]  Fetch::PATCH  Unable to connect\n"));
+    }
+    return response;
+  }
+
+
   static HttpResponse* POST(String url, String payload) {
     std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
 
@@ -89,67 +113,78 @@ public:
     return response;
   }
 
-  static HttpResponse* ON(String url, StreamHandler handler) {
-    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+static std::unique_ptr<HttpResponse> ON(String url,  unsigned long ttl, StreamHandler handler) {
+  // Start the time tracker for the loop
+  unsigned long startTime = millis();
 
-    client->setInsecure();
+  // Use a unique_ptr to handle the BearSSL::WiFiClientSecure to avoid manual delete
+  std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
 
-    HTTPClient https;
+  client->setInsecure();
+  HTTPClient https;
 
-    HttpResponse* response = nullptr;
+  std::unique_ptr<HttpResponse> response = nullptr;  // Response is now a unique_ptr
 
-    if (https.begin(*client, url)) {
+  if (https.begin(*client, url)) {
+    https.addHeader("Accept", "text/event-stream");
 
-      https.addHeader("Accept", "text/event-stream");
+    int httpCode = https.GET();
+    if (httpCode > 0) {
+      Serial.printf("\n[HTTPS] Fetch::ON httpCode: %d, url: %s\n", httpCode, url.c_str());
 
-      int httpCode = https.GET();
+      if (httpCode == HTTP_CODE_OK) {
+        // Get the length of the document (is -1 when Server sends no Content-Length header)
+        int len = https.getSize();
+        static uint8_t buff[128] = { 0 };
 
-      if (httpCode > 0) {
-        Serial.printf("\n[HTTPS] Fetch::ON httpCode: %d, url: %s\n", httpCode, url.c_str());
-        if (httpCode == HTTP_CODE_OK) {
-
-          // get length of document (is -1 when Server sends no Content-Length header)
-          int len = https.getSize();
-
-          // create buffer for read
-          static uint8_t buff[128] = { 0 };
-
-          // read all data from server
-          while (https.connected() && (len > 0 || len == -1)) {
-            // get available data size
-            size_t size = client->available();
-
-            if (size) {
-              // read up to 128 byte
-              int c = client->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
-
-              String body = "";
-
-              for (int i = 0; i < c; i++) {
-                body += ((char)buff[i]);
-              }
-
-              // write it to handler
-              httpCode = handler(body);
-              if (httpCode != HTTP_CODE_OK) {
-                break;
-              };
-
-              if (len > 0) { len -= c; }
-            }
-            delay(1);
+        // Read all data from the server with timeout check based on provided ttl
+        while (https.connected() && (len > 0 || len == -1)) {
+          // Check if the elapsed time since start exceeds ttl
+          if (millis() - startTime >= ttl) {
+            Serial.println(F("\n[HTTPS] Fetch::ON exiting loop due to TTL.\n"));
+            break;
           }
-          Serial.println(F("\n[HTTPS] Fetch::ON connection closed or file end.\n"));
+
+          // Get available data size
+          size_t size = client->available();
+          if (size) {
+            // Read up to 128 bytes
+            int c = client->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+
+            String body = "";
+            for (int i = 0; i < c; i++) {
+              body += static_cast<char>(buff[i]);
+            }
+
+            // Pass body data to the handler
+            httpCode = handler(body);
+            if (httpCode != HTTP_CODE_OK) {
+              break;
+            }
+
+            if (len > 0) {
+              len -= c;
+            }
+          }
+          delay(1);
         }
-        response = new HttpResponse(httpCode, https.getString());
-      } else {
-        Serial.printf("\n[HTTPS] Fetch::ON failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
+        Serial.println(F("\n[HTTPS] Fetch::ON connection closed or file end.\n"));
       }
-      https.end();
+
+      // Use unique_ptr to manage the response memory
+      response = std::make_unique<HttpResponse>(httpCode, https.getString());
     } else {
-      Serial.printf("\n[HTTPS] Fetch::ON Unable to connect, url: %s\n", url.c_str());
+      Serial.printf("\n[HTTPS] Fetch::ON failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
     }
 
-    return response;
+    // Always close the connection properly
+    https.end();
+  } else {
+    Serial.printf("\n[HTTPS] Fetch::ON Unable to connect, url: %s\n", url.c_str());
   }
+
+  // Return the response as a unique_ptr to ensure proper memory handling
+  return response;
+}
+
 };

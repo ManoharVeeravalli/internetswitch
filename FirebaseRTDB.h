@@ -9,12 +9,19 @@ public:
     return Fetch::DELETE(RTDB_BASE_URL + path + ".json?auth=" + idToken);
   }
 
+  static HttpResponse* updateDocument(String path, String payload, String idToken) {
+    return Fetch::PATCH(RTDB_BASE_URL + path + ".json?auth=" + idToken, payload);
+  }
+
   static HttpResponse* createDocument(String path, String payload, String idToken) {
     return Fetch::POST(RTDB_BASE_URL + path + ".json?auth=" + idToken, payload);
   }
 
-  static HttpResponse* onDocumentChange(String path, String idToken, StreamHandler callback) {
-    return Fetch::ON(RTDB_BASE_URL + path + ".json?auth=" + idToken, callback);
+  static std::unique_ptr<HttpResponse> onDocumentChange(String path, String idToken, unsigned long ttl, StreamHandler callback) {
+    return Fetch::ON(RTDB_BASE_URL + path + ".json?auth=" + idToken, ttl, callback);
+  }
+
+  static void ping(String localId, String idToken) {
   }
 
   static String createDevice(String localId, String idToken) {
@@ -23,13 +30,15 @@ public:
     JsonObject details = root.createNestedObject("details");
     details["status"] = STATUS_OFF;
     details["state"] = STATE_ACTIVE;
+    JsonObject pingObj = details.createNestedObject("ping");
+    pingObj[SERVER_VALUE] = FIREBASE_TIMESTAMP;
 
     String requestBody = "";
     serializeJson(payload, requestBody);
 
     String deviceID = "";
 
-    HttpResponse* resp = createDocument("users/" + localId + "/devices", JSON::stringify(root), idToken);
+    HttpResponse* resp = createDocument("users/" + localId + "/devices", requestBody, idToken);
 
     if (!resp) {
       Serial.println(F("\Error: Invalid Response!"));

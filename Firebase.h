@@ -29,7 +29,7 @@ public:
     return reset();
   }
 
-  static void onStatusChangeRTDB(StreamHandler callback) {
+  static void onStatusChangeRTDB(unsigned long ttl, StreamHandler callback) {
 
     FirebaseConfig config = getFirebaseConfig();
 
@@ -42,7 +42,7 @@ public:
 
     String path = "users/" + localId + "/devices/" + deviceId + "/details";
 
-    HttpResponse* response = FirebaseRTDB::onDocumentChange(path, idToken, callback);
+    std::unique_ptr<HttpResponse> response = FirebaseRTDB::onDocumentChange(path, idToken, ttl, callback);
 
     if (!response) {
       Serial.println(F("\nSome Error has Occurred!"));
@@ -51,8 +51,6 @@ public:
 
     int httpCode = response->getStatusCode();
     String body = response->getBody();
-
-    delete response;
 
     if (httpCode == HTTP_CODE_OK) {
       return;
@@ -76,6 +74,50 @@ public:
     Serial.printf("\nSome Error has Occurred, httpCode: %d", httpCode);
   }
 
+  static void ping() {
+    Serial.println(F("\npinging...."));
+
+    FirebaseConfig config = getFirebaseConfig();
+    if (!config.isValid()) return;
+
+    String localId = config.getLocalID();
+    String deviceId = config.getDeviceID();
+    String idToken = config.getToken();
+    String refreshToken = config.getRefreshToken();
+
+    StaticJsonDocument<200> payload;
+
+    JsonObject root = payload.to<JsonObject>();
+
+    JsonObject pingObj = root.createNestedObject("ping");
+
+    pingObj[SERVER_VALUE] = FIREBASE_TIMESTAMP;
+
+    String requestBody = "";
+
+    serializeJson(payload, requestBody);
+
+    HttpResponse* response = FirebaseRTDB::updateDocument("users/" + localId + "/devices/" + deviceId + "/details", requestBody, idToken);
+    int statusCode = response->getStatusCode();
+    String body = response->getBody();
+    delete response;
+
+    if (statusCode == HTTP_CODE_OK) {
+      Serial.println(F("ping successful!"));
+      return;
+    }
+
+    if (statusCode == HTTP_CODE_UNAUTHORIZED) {
+      Serial.println(F("Auth token expired!"));
+      if(regerateToken(refreshToken, deviceId)) {
+        ping();
+      }
+      return;
+    }
+
+    Serial.println(F("Failed to ping"));
+  }
+
   static void recordDeviceHistory(String message) {
     Serial.println(F("\nrecoding device history...."));
     FirebaseConfig config = getFirebaseConfig();
@@ -93,7 +135,10 @@ public:
     JsonObject createdAt = root.createNestedObject("createdAt");
     createdAt[SERVER_VALUE] = FIREBASE_TIMESTAMP;
 
-    HttpResponse* response = FirebaseRTDB::createDocument("users/" + localId + "/devices/" + deviceId + "/history", JSON::stringify(payload), idToken);
+    String requestBody = "";
+    serializeJson(payload, requestBody);
+
+    HttpResponse* response = FirebaseRTDB::createDocument("users/" + localId + "/devices/" + deviceId + "/history", requestBody, idToken);
     int statusCode = response->getStatusCode();
     String body = response->getBody();
     delete response;
@@ -210,7 +255,7 @@ public:
       return false;
     }
 
-    JSON::stringify(doc, configFile);
+    serializeJson(doc, configFile);
 
     configFile.close();
     return true;
