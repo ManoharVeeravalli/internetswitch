@@ -11,7 +11,9 @@ ESP8266WebServer server(80);
 
 const char* HOSTNAME = "internetswitch"; //visit "internetswitch.local" to access the app
 
-#define TTL 7200000  // 2 hours in milliseconds
+String DEVICE_SETUP_SUCCESSFULL = "Device is setup successfully";
+
+#define TTL 1800000  // 1/2 hours in milliseconds
 
 void setup() {
   Serial.begin(115200);
@@ -81,7 +83,6 @@ void setup() {
 }
 
 void loop() {
-  Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
   delay(5000);
   if (isSetupPending()) {
     Serial.println(F("\nSetup pending..."));
@@ -91,8 +92,9 @@ void loop() {
 
   Firebase::ping(); //We are seding this structure to update timestamp {"ping":{".sv":"timestamp"}}
 
+  Firebase::recordMemoryStatistics(ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
+
   Firebase::onStatusChangeRTDB(TTL, [](String body) { //this will break every 30 seconds...
-    Serial.printf("\nFree Heap: %d, Heap Fragmentation: %d, Max Block Size: %d", ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize());
     return processBody(body);
   });
 }
@@ -165,7 +167,7 @@ void onSetupComplete() {
   server.stop();
   WiFi.mode(WIFI_STA);
   Serial.println(F("\nSetup ready, proceeding to firebase...."));
-  Firebase::recordDeviceHistory("Device is setup successfully");
+  Firebase::recordDeviceHistory(DEVICE_SETUP_SUCCESSFULL);
 }
 
 bool isSetupPending() {

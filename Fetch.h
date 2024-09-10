@@ -21,10 +21,10 @@ public:
       int httpCode = https.DELETE();
 
       if (httpCode > 0) {
-        Serial.printf("\n[HTTPS] Fetch::DELETE httpCode: %d, url: %s\n", httpCode, url.c_str());
         if (httpCode == HTTP_CODE_OK) {
           result = true;
         } else {
+          Serial.printf("\n[HTTPS] Fetch::DELETE httpCode: %d, url: %s\n", httpCode, url.c_str());
         }
       } else {
         Serial.printf("\n[HTTPS] Fetch::DELETE failed, httpCode: %d, url: %s\n", httpCode, url.c_str());
@@ -48,7 +48,9 @@ public:
     if (https.begin(*client, url)) {
       int httpCode = https.PATCH(payload);
       if (httpCode > 0) {
-        Serial.printf("\n[HTTPS] Fetch::PATCH httpCode: %d, url: %s\n", httpCode, url.c_str());
+        if (httpCode != HTTP_CODE_OK) {
+          Serial.printf("\n[HTTPS] Fetch::PATCH httpCode: %d, url: %s\n", httpCode, url.c_str());
+        }
         String payload = https.getString();
         response = new HttpResponse(httpCode, payload);
       } else {
@@ -72,7 +74,9 @@ public:
     if (https.begin(*client, url)) {
       int httpCode = https.POST(payload);
       if (httpCode > 0) {
-        Serial.printf("\n[HTTPS] Fetch::POST httpCode: %d, url: %s\n", httpCode, url.c_str());
+        if (httpCode != HTTP_CODE_OK) {
+          Serial.printf("\n[HTTPS] Fetch::POST httpCode: %d, url: %s\n", httpCode, url.c_str());
+        }
         String payload = https.getString();
         response = new HttpResponse(httpCode, payload);
       } else {
@@ -99,7 +103,9 @@ public:
       int httpCode = https.GET();
 
       if (httpCode > 0) {
-        Serial.printf("\n[HTTPS] Fetch::GET httpCode: %d, url: %s\n", httpCode, url.c_str());
+        if (httpCode != HTTP_CODE_OK) {
+          Serial.printf("\n[HTTPS] Fetch::GET httpCode: %d, url: %s\n", httpCode, url.c_str());
+        }
         String payload = https.getString();
         response = new HttpResponse(httpCode, payload);
       } else {
@@ -130,8 +136,6 @@ static std::unique_ptr<HttpResponse> ON(String url,  unsigned long ttl, StreamHa
 
     int httpCode = https.GET();
     if (httpCode > 0) {
-      Serial.printf("\n[HTTPS] Fetch::ON httpCode: %d, url: %s\n", httpCode, url.c_str());
-
       if (httpCode == HTTP_CODE_OK) {
         // Get the length of the document (is -1 when Server sends no Content-Length header)
         int len = https.getSize();
@@ -169,8 +173,9 @@ static std::unique_ptr<HttpResponse> ON(String url,  unsigned long ttl, StreamHa
           delay(1);
         }
         Serial.println(F("\n[HTTPS] Fetch::ON connection closed or file end.\n"));
+      } else {
+        Serial.printf("\n[HTTPS] Fetch::ON httpCode: %d, url: %s\n", httpCode, url.c_str());
       }
-
       // Use unique_ptr to manage the response memory
       response = std::make_unique<HttpResponse>(httpCode, https.getString());
     } else {

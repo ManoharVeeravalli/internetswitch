@@ -118,8 +118,50 @@ public:
     Serial.println(F("Failed to ping"));
   }
 
+  static void recordMemoryStatistics(size_t freeHeap, size_t heapFragmentation, size_t maxFreeBlockSize) {
+    Serial.println(F("\nrecording memory statistics...."));
+    FirebaseConfig config = getFirebaseConfig();
+
+    if (!config.isValid()) return;
+
+    String localId = config.getLocalID();
+    String deviceId = config.getDeviceID();
+    String idToken = config.getToken();
+    String refreshToken = config.getRefreshToken();
+
+    StaticJsonDocument<200> payload;
+    JsonObject root = payload.to<JsonObject>();
+    root["freeHeap"] = freeHeap;
+    root["heapFragmentation"] = heapFragmentation;
+    root["maxFreeBlockSize"] = maxFreeBlockSize;
+    JsonObject createdAt = root.createNestedObject("createdAt");
+    createdAt[SERVER_VALUE] = FIREBASE_TIMESTAMP;
+
+    String requestBody = "";
+    serializeJson(payload, requestBody);
+
+    HttpResponse* response = FirebaseRTDB::createDocument("users/" + localId + "/devices/" + deviceId + "/memory", requestBody, idToken);
+    int statusCode = response->getStatusCode();
+    String body = response->getBody();
+    delete response;
+
+    if (statusCode == HTTP_CODE_OK) {
+      Serial.println(F("memory recorded successfully!"));
+      return;
+    }
+
+    if (statusCode == HTTP_CODE_UNAUTHORIZED) {
+      Serial.println(F("Auth token expired!"));
+      if(regerateToken(refreshToken, deviceId)) {
+        recordMemoryStatistics(freeHeap, heapFragmentation, maxFreeBlockSize);
+      }
+      return;
+    }
+    Serial.println(F("Failed to record memory"));
+  }
+
   static void recordDeviceHistory(String message) {
-    Serial.println(F("\nrecoding device history...."));
+    Serial.println(F("\nrecording device history...."));
     FirebaseConfig config = getFirebaseConfig();
 
     if (!config.isValid()) return;
@@ -144,7 +186,7 @@ public:
     delete response;
 
     if (statusCode == HTTP_CODE_OK) {
-      Serial.println(F("History recorded successfully"));
+      Serial.println(F("history recorded successfully!"));
       return;
     }
     if (statusCode == HTTP_CODE_UNAUTHORIZED) {
